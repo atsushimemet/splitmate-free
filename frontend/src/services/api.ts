@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { AllocationRatio, ApiResponse, CreateExpenseRequest, Expense, ExpenseStats, Settlement, UpdateAllocationRatioRequest } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -14,9 +14,14 @@ export const expenseApi = {
   // 費用を作成
   createExpense: async (data: CreateExpenseRequest): Promise<ApiResponse<Expense>> => {
     try {
+      console.log('Creating expense with data:', data);
+      console.log('API base URL:', api.defaults.baseURL);
       const response = await api.post('/expenses', data);
+      console.log('Expense created successfully:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('Error creating expense:', error);
+      console.error('Error response:', error.response?.data);
       return {
         success: false,
         error: error.response?.data?.error || '費用の作成に失敗しました'

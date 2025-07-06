@@ -1,0 +1,69 @@
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:9.0
+    container_name: splitmate-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: splitmate
+      MYSQL_USER: splitmate_user
+      MYSQL_PASSWORD: splitmate_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/src/database/schema-mysql.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - splitmate-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: splitmate-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_USER: splitmate_user
+      DB_PASSWORD: splitmate_password
+      DB_NAME: splitmate
+      DB_PORT: 3306
+      PORT: 3001
+      NODE_ENV: development
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mysql
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - splitmate-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: splitmate-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - splitmate-network
+
+volumes:
+  mysql_data:
+
+networks:
+  splitmate-network:
+    driver: bridge 
