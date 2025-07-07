@@ -97,3 +97,7 @@ jspm_packages/
 
 # TypeScript
 *.tsbuildinfo
+
+# Terraform local state and providers
+infra/terraform/.terraform/
+
