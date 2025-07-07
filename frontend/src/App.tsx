@@ -5,7 +5,7 @@ import { ExpenseList } from './components/ExpenseList';
 import { ExpenseStats } from './components/ExpenseStats';
 import { SettlementList } from './components/SettlementList';
 import { expenseApi, settlementApi } from './services/api';
-import { CreateExpenseRequest, Expense, ExpenseStats as Stats } from './types';
+import { AllocationRatio, CreateExpenseRequest, Expense, ExpenseStats as Stats } from './types';
 
 function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -98,6 +98,20 @@ function App() {
     } catch (err) {
       setError('費用の削除に失敗しました');
     }
+  };
+
+  const handleAllocationRatioChange = async (allocationRatio: AllocationRatio) => {
+    // 配分比率が変更された時の処理
+    console.log('配分比率が変更されました:', allocationRatio);
+    
+    // 精算一覧が表示されている場合は、精算一覧を更新
+    if (activeTab === 'settlements') {
+      // SettlementListコンポーネントに更新を通知
+      handleSettlementUpdate();
+    }
+    
+    // localStorageを通じてSettlementListコンポーネントに更新通知を送信
+    localStorage.setItem('allocationRatioUpdated', Date.now().toString());
   };
 
   const handleSettlementUpdate = () => {
@@ -214,7 +228,7 @@ function App() {
 
         {activeTab === 'allocation' && (
           <div className="max-w-4xl mx-auto">
-            <AllocationRatioForm />
+            <AllocationRatioForm onRatioChange={handleAllocationRatioChange} />
           </div>
         )}
 

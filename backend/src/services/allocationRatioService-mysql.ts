@@ -1,5 +1,6 @@
 import { pool } from '../database/connection-mysql';
 import { AllocationRatio, ApiResponse, UpdateAllocationRatioRequest } from '../types';
+import { settlementService } from './settlementService-mysql';
 
 export const allocationRatioService = {
   // 配分比率を取得
@@ -67,6 +68,9 @@ export const allocationRatioService = {
       const id = `ratio_${Date.now()}`;
       await pool.execute(insertQuery, [id, data.husbandRatio, data.wifeRatio, mysqlDateTime, mysqlDateTime]);
       
+      // 配分比率更新後、既存の精算を再計算
+      await allocationRatioService.recalculateAllSettlements();
+      
       return {
         success: true,
         data: {
@@ -83,6 +87,32 @@ export const allocationRatioService = {
         success: false,
         error: '配分比率の更新に失敗しました'
       };
+    }
+  },
+
+  // 全精算を再計算
+  recalculateAllSettlements: async (): Promise<void> => {
+    try {
+      // 全ての費用を取得
+      const expenseQuery = `
+        SELECT id FROM expenses ORDER BY created_at ASC
+      `;
+      
+      const [expenseRows] = await pool.execute(expenseQuery);
+      const expenses = expenseRows as any[];
+      
+      // 各費用の精算を再計算
+      for (const expense of expenses) {
+        try {
+          await settlementService.calculateSettlement(expense.id);
+        } catch (error) {
+          console.error(`Error recalculating settlement for expense ${expense.id}:`, error);
+        }
+      }
+      
+      console.log(`Recalculated settlements for ${expenses.length} expenses`);
+    } catch (error) {
+      console.error('Error recalculating all settlements:', error);
     }
   }
 }; 

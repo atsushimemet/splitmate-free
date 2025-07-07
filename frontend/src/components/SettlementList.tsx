@@ -319,6 +319,20 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
     loadSettlements();
   }, []);
 
+  // 外部からの更新通知を受け取る
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'allocationRatioUpdated') {
+        // 配分比率が更新された場合、精算一覧を再読み込み
+        loadSettlements();
+        localStorage.removeItem('allocationRatioUpdated');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const loadSettlements = async () => {
     setIsLoading(true);
     setError(null);
