@@ -1,18 +1,20 @@
-import express from 'express';
-import { settlementController } from '../controllers/settlementController';
+import { Router } from 'express';
+import { SettlementController } from '../controllers/settlementController-mysql';
 
-const router = express.Router();
+const router = Router();
 
 // 精算一覧を取得
-router.get('/', settlementController.getAllSettlements);
+router.get('/', SettlementController.getAllSettlements);
 
 // 精算を計算
-router.post('/calculate/:expenseId', settlementController.calculateSettlement);
+router.post('/calculate/:expenseId', SettlementController.calculateSettlement);
 
 // 精算を承認
-router.put('/:settlementId/approve', settlementController.approveSettlement);
+router.put('/approve/:settlementId', SettlementController.approveSettlement);
 
 // 精算を完了
-router.put('/:settlementId/complete', settlementController.completeSettlement);
+router.put('/complete/:settlementId', SettlementController.completeSettlement);
+
+router.delete('/:settlementId', SettlementController.deleteSettlement);
 
 export default router; 

@@ -5,7 +5,7 @@ import { ExpenseList } from './components/ExpenseList';
 import { ExpenseStats } from './components/ExpenseStats';
 import { SettlementList } from './components/SettlementList';
 import { expenseApi, settlementApi } from './services/api';
-import { AllocationRatio, CreateExpenseRequest, Expense, ExpenseStats as Stats } from './types';
+import { CreateExpenseRequest, Expense, ExpenseStats as Stats } from './types';
 
 function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -16,7 +16,6 @@ function App() {
     minAmount: 0,
     maxAmount: 0
   });
-  const [allocationRatio, setAllocationRatio] = useState<AllocationRatio | null>(null);
   const [activeTab, setActiveTab] = useState<'expenses' | 'allocation' | 'settlements'>('expenses');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,12 +51,12 @@ function App() {
     }
   };
 
-  const handleSubmitExpense = async (data: CreateExpenseRequest) => {
+  const handleExpenseSubmit = async (expenseData: CreateExpenseRequest) => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const response = await expenseApi.createExpense(data);
+      const response = await expenseApi.createExpense(expenseData);
       if (response.success && response.data) {
         // 新しい費用をリストに追加
         setExpenses(prev => [response.data!, ...prev]);
@@ -99,10 +98,6 @@ function App() {
     } catch (err) {
       setError('費用の削除に失敗しました');
     }
-  };
-
-  const handleAllocationRatioChange = (ratio: AllocationRatio) => {
-    setAllocationRatio(ratio);
   };
 
   const handleSettlementUpdate = () => {
@@ -202,7 +197,7 @@ function App() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* 左カラム: 費用入力フォーム */}
             <div className="lg:col-span-1">
-              <ExpenseForm onSubmit={handleSubmitExpense} isLoading={isSubmitting} />
+              <ExpenseForm onSubmit={handleExpenseSubmit} isLoading={isSubmitting} />
             </div>
 
             {/* 右カラム: 統計情報と費用一覧 */}
@@ -219,7 +214,7 @@ function App() {
 
         {activeTab === 'allocation' && (
           <div className="max-w-4xl mx-auto">
-            <AllocationRatioForm onRatioChange={handleAllocationRatioChange} />
+            <AllocationRatioForm />
           </div>
         )}
 

@@ -33,12 +33,14 @@ export class ExpenseController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error creating expense:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -54,12 +56,14 @@ export class ExpenseController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error fetching expenses:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -84,12 +88,14 @@ export class ExpenseController {
       } else {
         res.status(404).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error fetching expense:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -114,12 +120,14 @@ export class ExpenseController {
       } else {
         res.status(404).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error deleting expense:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -135,12 +143,14 @@ export class ExpenseController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error fetching expense stats:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 } 

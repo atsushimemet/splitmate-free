@@ -21,8 +21,8 @@ interface FinalSettlementVerificationModalProps {
 function VerificationModal({ settlement, isOpen, onClose }: VerificationModalProps) {
   if (!isOpen) return null;
 
-  const getPayerLabel = (payer: string) => {
-    return payer === 'husband' ? '夫' : '妻';
+  const getPayerName = (payerId: string): string => {
+    return payerId === 'husband' ? '夫' : '妻';
   };
 
   const getCalculationSteps = () => {
@@ -32,8 +32,8 @@ function VerificationModal({ settlement, isOpen, onClose }: VerificationModalPro
       {
         step: 1,
         title: '立替者が総額を支払う',
-        description: `立替者（${getPayerLabel(settlement.payer)}）が総額を支払う`,
-        calculation: `${getPayerLabel(settlement.payer)}が支払った金額: ${totalAmount.toLocaleString()}円`,
+        description: `立替者（${getPayerName(settlement.payer)}）が総額を支払う`,
+        calculation: `${getPayerName(settlement.payer)}が支払った金額: ${totalAmount.toLocaleString()}円`,
         result: `${totalAmount.toLocaleString()}円`
       },
       {
@@ -51,7 +51,7 @@ function VerificationModal({ settlement, isOpen, onClose }: VerificationModalPro
         calculation: settlement.payer === 'husband' 
           ? `妻（精算者）が夫（立替者）に支払う金額: ${settlement.settlementAmount.toLocaleString()}円`
           : `夫（精算者）が妻（立替者）に支払う金額: ${settlement.settlementAmount.toLocaleString()}円`,
-        result: `${getPayerLabel(settlement.receiver)}から${getPayerLabel(settlement.payer)}に${settlement.settlementAmount.toLocaleString()}円`
+        result: `${getPayerName(settlement.receiver)}から${getPayerName(settlement.payer)}に${settlement.settlementAmount.toLocaleString()}円`
       }
     ];
 
@@ -93,7 +93,7 @@ function VerificationModal({ settlement, isOpen, onClose }: VerificationModalPro
               </div>
               <div>
                 <span className="text-blue-700 font-medium">立替者:</span>
-                <span className="ml-2 text-blue-900">{getPayerLabel(settlement.payer)}</span>
+                <span className="ml-2 text-blue-900">{getPayerName(settlement.payer)}</span>
               </div>
               <div>
                 <span className="text-blue-700 font-medium">精算金額:</span>
@@ -157,10 +157,6 @@ function VerificationModal({ settlement, isOpen, onClose }: VerificationModalPro
 
 function FinalSettlementVerificationModal({ settlements, isOpen, onClose }: FinalSettlementVerificationModalProps) {
   if (!isOpen) return null;
-
-  const getPayerLabel = (payer: string) => {
-    return payer === 'husband' ? '夫' : '妻';
-  };
 
   const getCalculationDetails = () => {
     // 妻から夫に支払う金額の合計
@@ -382,8 +378,8 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
     }
   };
 
-  const getPayerLabel = (payer: string) => {
-    return payer === 'husband' ? '夫' : '妻';
+  const getPayerName = (payerId: string): string => {
+    return payerId === 'husband' ? '夫' : '妻';
   };
 
   const handleFinalSettlement = () => {
@@ -650,29 +646,35 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
                     </div>
                     
                     <div className="mt-3 text-sm text-gray-600">
-                      <span className="text-gray-500">立替者:</span>
-                      <span className="ml-2 font-medium text-gray-900">{getPayerLabel(settlement.payer)}</span>
-                      <span className="mx-2">←</span>
-                      <span className="text-gray-500 relative">
-                        精算者:
-                        <button
-                          className="ml-1 text-gray-400 cursor-help"
-                          onMouseEnter={() => setShowTooltip(true)}
-                          onMouseLeave={() => setShowTooltip(false)}
-                          onTouchStart={() => setShowTooltip(!showTooltip)}
-                          onFocus={() => setShowTooltip(true)}
-                          onBlur={() => setShowTooltip(false)}
-                        >
-                          ⓘ
-                        </button>
-                        {showTooltip && (
-                          <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap z-10">
-                            立替者に精算金を送る人
-                            <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                          </div>
-                        )}
-                      </span>
-                      <span className="ml-2 font-medium text-gray-900">{getPayerLabel(settlement.receiver)}</span>
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <span className="text-gray-500">立替者:</span>
+                          <span className="ml-2 font-medium text-gray-900">{getPayerName(settlement.payer)}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="text-gray-500">精算者:</span>
+                          <span className="ml-2 font-medium text-gray-900">{getPayerName(settlement.receiver)}</span>
+                          <button
+                            className="ml-1 text-gray-400 cursor-help"
+                            onMouseEnter={() => setShowTooltip(true)}
+                            onMouseLeave={() => setShowTooltip(false)}
+                            onTouchStart={() => setShowTooltip(!showTooltip)}
+                            onFocus={() => setShowTooltip(true)}
+                            onBlur={() => setShowTooltip(false)}
+                          >
+                            ⓘ
+                          </button>
+                          {showTooltip && (
+                            <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap z-10">
+                              立替者に精算金を送る人
+                              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        {getPayerName(settlement.receiver)} → {getPayerName(settlement.payer)} に ¥{settlement.settlementAmount.toLocaleString()} を精算
+                      </div>
                     </div>
                     
                     <div className="mt-2 text-xs text-gray-500">

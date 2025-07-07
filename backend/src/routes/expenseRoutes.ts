@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ExpenseController } from '../controllers/expenseController';
+import { ExpenseController } from '../controllers/expenseController-mysql';
 
 const router = Router();
 

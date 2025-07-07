@@ -23,12 +23,14 @@ export class AllocationRatioController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error fetching allocation ratio:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -54,12 +56,14 @@ export class AllocationRatioController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error updating allocation ratio:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 } 

@@ -23,12 +23,14 @@ export class SettlementController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error calculating settlement:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -53,12 +55,14 @@ export class SettlementController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error approving settlement:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -83,12 +87,14 @@ export class SettlementController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error completing settlement:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -104,12 +110,14 @@ export class SettlementController {
       } else {
         res.status(400).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error fetching settlements:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 
@@ -134,12 +142,14 @@ export class SettlementController {
       } else {
         res.status(404).json(result);
       }
+      return;
     } catch (error) {
       console.error('Error deleting settlement:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
       });
+      return;
     }
   }
 } 
