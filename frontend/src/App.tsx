@@ -129,13 +129,6 @@ function App() {
               <h1 className="text-3xl font-bold text-gray-900">SplitMate</h1>
               <p className="text-gray-600">夫婦間家計費精算システム</p>
             </div>
-            <button
-              onClick={loadData}
-              disabled={isLoading}
-              className="btn-secondary"
-            >
-              {isLoading ? '更新中...' : '更新'}
-            </button>
           </div>
         </div>
       </header>
