@@ -93,17 +93,8 @@ resource "aws_security_group" "db" {
 }
 
 resource "aws_db_subnet_group" "main" {
-  name = "splitmate-db-subnet-group"
-  subnet_ids = [
-    aws_subnet.main.id,
-    aws_subnet.main_2.id,
-    aws_subnet.private_1.id,
-    aws_subnet.private_2.id
-  ]
-
-  tags = {
-    Name = "splitmate-db-subnet-group"
-  }
+  name       = "splitmate-db-subnet-group"
+  subnet_ids = [aws_subnet.main.id, aws_subnet.main_2.id]
 }
 
 resource "aws_db_instance" "mysql" {
@@ -230,7 +221,7 @@ resource "aws_ecs_task_definition" "backend" {
       environment = [
         {
           name  = "DB_HOST"
-          value = aws_db_instance.mysql.address
+          value = aws_db_instance.mysql.endpoint
         },
         {
           name  = "DB_USER"
@@ -276,7 +267,6 @@ resource "aws_ecs_service" "backend" {
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = 1
   launch_type     = "FARGATE"
-
 
   network_configuration {
     subnets          = [aws_subnet.main.id, aws_subnet.main_2.id]
@@ -476,68 +466,4 @@ resource "aws_ecs_service" "frontend" {
   }
 
   depends_on = [aws_lb_listener.http]
-}
-
-# プライベートサブネットの追加
-resource "aws_subnet" "private_1" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "ap-northeast-1a"
-
-  tags = {
-    Name = "splitmate-private-1"
-  }
-}
-
-resource "aws_subnet" "private_2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.4.0/24"
-  availability_zone = "ap-northeast-1c"
-
-  tags = {
-    Name = "splitmate-private-2"
-  }
-}
-
-# NAT Gateway用のElastic IP
-resource "aws_eip" "nat" {
-  domain = "vpc"
-  tags = {
-    Name = "splitmate-nat"
-  }
-}
-
-# NAT Gateway
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.main.id
-
-  tags = {
-    Name = "splitmate-nat"
-  }
-}
-
-# プライベートサブネット用のルートテーブル
-resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
-  }
-
-  tags = {
-    Name = "splitmate-private"
-  }
-}
-
-# プライベートサブネットとルートテーブルの関連付け
-resource "aws_route_table_association" "private_1" {
-  subnet_id      = aws_subnet.private_1.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "private_2" {
-  subnet_id      = aws_subnet.private_2.id
-  route_table_id = aws_route_table.private.id
 }

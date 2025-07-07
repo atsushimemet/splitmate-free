@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3001;
 // ミドルウェア
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://splitmate-alb-906594043.ap-northeast-1.elb.amazonaws.com'],
   credentials: true
 }));
 app.use(express.json());
