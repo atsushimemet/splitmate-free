@@ -254,7 +254,9 @@ export const settlementService = {
         settlementAmount: row.settlementAmount,
         status: row.status,
         createdAt: new Date(row.createdAt),
-        updatedAt: new Date(row.updatedAt)
+        updatedAt: new Date(row.updatedAt),
+        expenseDescription: row.expenseDescription,
+        expenseAmount: row.expenseAmount
       }));
       
       return {

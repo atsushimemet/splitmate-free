@@ -309,7 +309,7 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
     isOpen: false,
     settlement: null
   });
-  const [showTooltip, setShowTooltip] = useState(false);
+
   const [finalSettlementVerificationModal, setFinalSettlementVerificationModal] = useState<{ isOpen: boolean; settlements: Settlement[] }>({
     isOpen: false,
     settlements: []
@@ -365,20 +365,6 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
     }
   };
 
-  const handleComplete = async (settlementId: string) => {
-    try {
-      const response = await settlementApi.completeSettlement(settlementId);
-      if (response.success) {
-        await loadSettlements();
-        onSettlementUpdate?.();
-      } else {
-        setError(response.error || '精算の完了に失敗しました');
-      }
-    } catch (err) {
-      setError('精算の完了に失敗しました');
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -390,10 +376,6 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
       default:
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{status}</span>;
     }
-  };
-
-  const getPayerName = (payerId: string): string => {
-    return payerId === 'husband' ? '夫' : '妻';
   };
 
   const handleFinalSettlement = () => {
@@ -610,113 +592,122 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
             <p className="mt-1 text-sm text-gray-500">費用を入力すると精算が自動的に計算されます</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {settlements.map((settlement) => (
-              <div key={settlement.id} className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        精算
-                      </h3>
-                      {getStatusBadge(settlement.status)}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">夫の負担額:</span>
-                        <span className="ml-2 font-medium text-gray-900">
-                          ¥{settlement.husbandAmount.toLocaleString()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">妻の負担額:</span>
-                        <span className="ml-2 font-medium text-gray-900">
-                          ¥{settlement.wifeAmount.toLocaleString()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">合計金額:</span>
-                        <span className="ml-2 font-medium text-gray-900">
-                          ¥{(settlement.husbandAmount + settlement.wifeAmount).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-gray-500">精算金額:</span>
-                        <span className="ml-2 font-medium text-blue-600">
-                          ¥{settlement.settlementAmount.toLocaleString()}
-                        </span>
-                        <button
-                          onClick={() => setVerificationModal({ isOpen: true, settlement })}
-                          className="ml-2 inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:border-blue-300 transition-colors"
-                          title="精算ロジックを確認"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          検算
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-3 text-sm text-gray-600">
-                      <div className="flex items-center space-x-4">
-                        <div>
-                          <span className="text-gray-500">立替者:</span>
-                          <span className="ml-2 font-medium text-gray-900">{getPayerName(settlement.payer)}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-gray-500">精算者:</span>
-                          <span className="ml-2 font-medium text-gray-900">{getPayerName(settlement.receiver)}</span>
-                          <button
-                            className="ml-1 text-gray-400 cursor-help"
-                            onMouseEnter={() => setShowTooltip(true)}
-                            onMouseLeave={() => setShowTooltip(false)}
-                            onTouchStart={() => setShowTooltip(!showTooltip)}
-                            onFocus={() => setShowTooltip(true)}
-                            onBlur={() => setShowTooltip(false)}
-                          >
-                            ⓘ
-                          </button>
-                          {showTooltip && (
-                            <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap z-10">
-                              立替者に精算金を送る人
-                              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+          <div className="space-y-6">
+            {/* 夫の精算 */}
+            {(() => {
+              const husbandSettlements = settlements.filter(s => s.payer === 'husband');
+              if (husbandSettlements.length === 0) return null;
+              
+              return (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-4">夫の精算</h3>
+                  <div className="space-y-3">
+                    {husbandSettlements.map((settlement) => (
+                      <div key={settlement.id} className="bg-white rounded-lg p-4 border border-blue-100">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h4 className="text-sm font-medium text-gray-900">
+                                説明: {settlement.expenseDescription || '説明なし'}
+                              </h4>
+                              {getStatusBadge(settlement.status)}
                             </div>
-                          )}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">合計金額:</span>
+                                <span className="ml-2 font-medium text-gray-900">
+                                  ¥{(settlement.husbandAmount + settlement.wifeAmount).toLocaleString()}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">夫の負担額:</span>
+                                <span className="ml-2 font-medium text-gray-900">
+                                  ¥{settlement.husbandAmount.toLocaleString()}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">妻の負担額:</span>
+                                <span className="ml-2 font-medium text-gray-900">
+                                  ¥{settlement.wifeAmount.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="ml-4 flex flex-col space-y-2">
+                            {settlement.status === 'pending' && (
+                              <button
+                                onClick={() => handleApprove(settlement.id)}
+                                className="btn-primary text-sm px-3 py-1"
+                              >
+                                承認
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {getPayerName(settlement.receiver)} → {getPayerName(settlement.payer)} に ¥{settlement.settlementAmount.toLocaleString()} を精算
-                      </div>
-                    </div>
-                    
-                    <div className="mt-2 text-xs text-gray-500">
-                      作成日: {new Date(settlement.createdAt).toLocaleDateString('ja-JP')}
-                    </div>
-                  </div>
-                  
-                  <div className="ml-4 flex flex-col space-y-2">
-                    {settlement.status === 'pending' && (
-                      <button
-                        onClick={() => handleApprove(settlement.id)}
-                        className="btn-primary text-sm px-3 py-1"
-                      >
-                        承認
-                      </button>
-                    )}
-                    {settlement.status === 'approved' && (
-                      <button
-                        onClick={() => handleComplete(settlement.id)}
-                        className="btn-primary text-sm px-3 py-1"
-                      >
-                        完了
-                      </button>
-                    )}
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })()}
+            
+            {/* 妻の精算 */}
+            {(() => {
+              const wifeSettlements = settlements.filter(s => s.payer === 'wife');
+              if (wifeSettlements.length === 0) return null;
+              
+              return (
+                <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-pink-900 mb-4">妻の精算</h3>
+                  <div className="space-y-3">
+                    {wifeSettlements.map((settlement) => (
+                      <div key={settlement.id} className="bg-white rounded-lg p-4 border border-pink-100">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h4 className="text-sm font-medium text-gray-900">
+                                説明: {settlement.expenseDescription || '説明なし'}
+                              </h4>
+                              {getStatusBadge(settlement.status)}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">合計金額:</span>
+                                <span className="ml-2 font-medium text-gray-900">
+                                  ¥{(settlement.husbandAmount + settlement.wifeAmount).toLocaleString()}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">夫の負担額:</span>
+                                <span className="ml-2 font-medium text-gray-900">
+                                  ¥{settlement.husbandAmount.toLocaleString()}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">妻の負担額:</span>
+                                <span className="ml-2 font-medium text-gray-900">
+                                  ¥{settlement.wifeAmount.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="ml-4 flex flex-col space-y-2">
+                            {settlement.status === 'pending' && (
+                              <button
+                                onClick={() => handleApprove(settlement.id)}
+                                className="btn-primary text-sm px-3 py-1"
+                              >
+                                承認
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

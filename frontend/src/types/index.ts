@@ -60,4 +60,6 @@ export interface Settlement {
   status: 'pending' | 'approved' | 'completed';
   createdAt: Date;
   updatedAt: Date;
+  expenseDescription?: string;
+  expenseAmount?: number;
 } 
