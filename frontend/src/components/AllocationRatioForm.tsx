@@ -202,7 +202,7 @@ export function AllocationRatioForm({ onRatioChange }: AllocationRatioFormProps)
             <div className="ml-3">
               <p className="text-sm text-blue-800">
                 設定した配分比率に基づいて、入力された費用が自動的に計算されます。
-                例：3,000円の費用の場合、夫が2,100円、妻が900円の負担となります。
+                例：3,000円の費用の場合、夫が{(3000 * husbandRatio / 100).toLocaleString()}円、妻が{(3000 * wifeRatio / 100).toLocaleString()}円の負担となります。
               </p>
             </div>
           </div>
