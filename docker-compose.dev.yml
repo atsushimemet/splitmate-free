@@ -26,8 +26,8 @@ services:
   # Backend API (Development)
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: backend/Dockerfile.dev
     container_name: splitmate-backend-dev
     restart: unless-stopped
     environment:

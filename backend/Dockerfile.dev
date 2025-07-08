@@ -8,10 +8,11 @@ RUN apk add --no-cache wget
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
 
 # Install all dependencies (including dev dependencies)
-RUN npm ci
+RUN npm ci --workspace=backend
 
 # Copy source code
 COPY . .
@@ -20,4 +21,4 @@ COPY . .
 EXPOSE 3001
 
 # Start the development server
-CMD ["npm", "run", "dev:mysql"] 
+CMD ["npm", "run", "dev:mysql", "--workspace=backend"]
