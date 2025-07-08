@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { AllocationRatioForm } from './components/AllocationRatioForm';
+import { AuthCallback } from './components/AuthCallback';
 import { ExpenseForm } from './components/ExpenseForm';
 import { ExpenseList } from './components/ExpenseList';
 import { ExpenseStats } from './components/ExpenseStats';
+import { GoogleLoginButton } from './components/GoogleLoginButton';
 import { SettlementList } from './components/SettlementList';
+import { UserMenu } from './components/UserMenu';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { expenseApi, settlementApi } from './services/api';
 import { AllocationRatio, CreateExpenseRequest, Expense, ExpenseStats as Stats } from './types';
 
-function App() {
+// メインコンテンツをラップするコンポーネント
+const AppContent = () => {
+  const { isAuthenticated, loading } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalExpenses: 0,
@@ -23,8 +30,10 @@ function App() {
 
   // 初期データの読み込み
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -119,7 +128,16 @@ function App() {
     console.log('精算が更新されました');
   };
 
-  return (
+  // ローディング中の表示
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  const MainContent = () => (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b">
@@ -129,6 +147,7 @@ function App() {
               <h1 className="text-3xl font-bold text-gray-900">SplitMate</h1>
               <p className="text-gray-600">夫婦間家計費精算システム</p>
             </div>
+            <UserMenu />
           </div>
         </div>
       </header>
@@ -232,6 +251,41 @@ function App() {
         )}
       </main>
     </div>
+  );
+
+  // 認証状態に応じてコンテンツを切り替え
+  return (
+    <Routes>
+      <Route
+        path="/auth/callback"
+        element={<AuthCallback />}
+      />
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? (
+            <MainContent />
+          ) : (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+              <h1 className="text-3xl font-bold text-gray-900 mb-8">SplitMate</h1>
+              <GoogleLoginButton />
+            </div>
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
+
+// ルートコンポーネント
+function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 }
 

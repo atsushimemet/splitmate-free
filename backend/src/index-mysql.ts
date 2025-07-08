@@ -1,11 +1,32 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import session from 'express-session';
 import helmet from 'helmet';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { initializeDatabase, testConnection } from './database/connection-mysql';
 import allocationRatioRoutes from './routes/allocationRatioRoutes-mysql';
 import expenseRoutes from './routes/expenseRoutes-mysql';
 import settlementRoutes from './routes/settlementRoutes-mysql';
+
+declare global {
+  namespace Express {
+    interface User {
+      // 必要に応じて型を拡張
+      id?: string;
+      displayName?: string;
+      emails?: { value: string }[];
+      photos?: { value: string }[];
+      [key: string]: any;
+    }
+    interface Request {
+      user?: User;
+      isAuthenticated?: () => boolean;
+      logout?: (callback: (err?: any) => void) => void;
+    }
+  }
+}
 
 // 環境変数の読み込み
 dotenv.config();
@@ -21,6 +42,14 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // 本番はtrue+HTTPS推奨
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 // リクエストログ
 app.use((req, res, next) => {
@@ -41,6 +70,62 @@ app.get('/health', (req, res) => {
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/allocation-ratio', allocationRatioRoutes);
 app.use('/api/settlements', settlementRoutes);
+
+// Google認証関連のルート
+passport.serializeUser((user: any, done) => {
+  done(null, user);
+});
+passport.deserializeUser((user: any, done) => {
+  done(null, user);
+});
+
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID!,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL!,
+},
+(accessToken, refreshToken, profile, done) => {
+  // 必要に応じてDB保存など
+  return done(null, profile);
+}
+));
+
+// Google認証開始
+app.get('/auth/google', passport.authenticate('google', {
+  scope: ['profile', 'email'],
+}));
+
+// Google認証コールバック
+app.get('/auth/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: 'http://localhost:3000/',
+    session: true
+  }),
+  (req, res) => {
+    // 認証成功時のリダイレクト先
+    res.redirect('http://localhost:3000/auth/callback');
+  }
+);
+
+// 認証状態確認
+app.get('/auth/status', (req, res) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    res.json({ authenticated: true, user: req.user });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
+
+// ログアウト
+app.get('/auth/logout', (req, res) => {
+  if (req.logout) {
+    req.logout(() => {
+      res.json({ success: true });
+    });
+  } else {
+    res.json({ success: false, error: 'Logout not supported' });
+  }
+});
 
 // 404 ハンドラー
 app.use('*', (req, res) => {

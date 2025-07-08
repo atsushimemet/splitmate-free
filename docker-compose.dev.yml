@@ -1,3 +1,4 @@
+version: '3.8'
 services:
   # MySQL Database
   mysql:
@@ -41,8 +42,11 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - ./backend:/app/backend
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+    env_file:
+      - ./backend/.env
     networks:
       - splitmate-network-dev
 

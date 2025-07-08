@@ -7,15 +7,16 @@ RUN apk add --no-cache wget
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy root package files
 COPY package.json package-lock.json ./
+# Copy backend package.json
 COPY backend/package.json ./backend/
 
-# Install all dependencies (including dev dependencies)
+# Install all dependencies for backend workspace
 RUN npm ci --workspace=backend
 
-# Copy source code
-COPY . .
+# Copy backend source code
+COPY backend ./backend
 
 # Expose port
 EXPOSE 3001

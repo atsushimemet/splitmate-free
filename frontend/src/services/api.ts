@@ -8,7 +8,16 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // CORSリクエストでクッキーを送信
 });
+
+// エラーレスポンスを整形するヘルパー関数
+const formatError = (error: any, defaultMessage: string): ApiResponse<any> => {
+  return {
+    success: false,
+    error: error.response?.data?.error || defaultMessage
+  };
+};
 
 export const expenseApi = {
   // 費用を作成
@@ -22,10 +31,7 @@ export const expenseApi = {
     } catch (error: any) {
       console.error('Error creating expense:', error);
       console.error('Error response:', error.response?.data);
-      return {
-        success: false,
-        error: error.response?.data?.error || '費用の作成に失敗しました'
-      };
+      return formatError(error, '費用の作成に失敗しました');
     }
   },
 
@@ -35,10 +41,7 @@ export const expenseApi = {
       const response = await api.get('/expenses');
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '費用の取得に失敗しました'
-      };
+      return formatError(error, '費用の取得に失敗しました');
     }
   },
 
@@ -48,10 +51,7 @@ export const expenseApi = {
       const response = await api.delete(`/expenses/${id}`);
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '費用の削除に失敗しました'
-      };
+      return formatError(error, '費用の削除に失敗しました');
     }
   },
 
@@ -61,10 +61,7 @@ export const expenseApi = {
       const response = await api.get('/expenses/stats');
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '統計情報の取得に失敗しました'
-      };
+      return formatError(error, '統計情報の取得に失敗しました');
     }
   }
 };
@@ -76,10 +73,7 @@ export const allocationApi = {
       const response = await api.get('/allocation-ratio');
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '配分比率の取得に失敗しました'
-      };
+      return formatError(error, '配分比率の取得に失敗しました');
     }
   },
 
@@ -89,10 +83,7 @@ export const allocationApi = {
       const response = await api.put('/allocation-ratio', data);
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '配分比率の更新に失敗しました'
-      };
+      return formatError(error, '配分比率の更新に失敗しました');
     }
   }
 };
@@ -104,10 +95,7 @@ export const settlementApi = {
       const response = await api.get('/settlements');
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '精算一覧の取得に失敗しました'
-      };
+      return formatError(error, '精算一覧の取得に失敗しました');
     }
   },
 
@@ -117,10 +105,7 @@ export const settlementApi = {
       const response = await api.post(`/settlements/calculate/${expenseId}`);
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '精算計算に失敗しました'
-      };
+      return formatError(error, '精算計算に失敗しました');
     }
   },
 
@@ -130,10 +115,7 @@ export const settlementApi = {
       const response = await api.put(`/settlements/${settlementId}/approve`);
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '精算の承認に失敗しました'
-      };
+      return formatError(error, '精算の承認に失敗しました');
     }
   },
 
@@ -143,10 +125,7 @@ export const settlementApi = {
       const response = await api.put(`/settlements/${settlementId}/complete`);
       return response.data;
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || '精算の完了に失敗しました'
-      };
+      return formatError(error, '精算の完了に失敗しました');
     }
   }
 }; 
