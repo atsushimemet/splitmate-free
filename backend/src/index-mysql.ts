@@ -36,8 +36,17 @@ const PORT = process.env.PORT || 3001;
 
 // ミドルウェア
 app.use(helmet());
+// 開発環境かどうかを判定
+const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+const frontendUrl = process.env.FRONTEND_URL || (isDevelopment ? 'http://localhost:3000' : 'http://splitmate-alb-906594043.ap-northeast-1.elb.amazonaws.com');
+const backendUrl = process.env.BACKEND_URL || (isDevelopment ? 'http://localhost:3001' : 'http://splitmate-alb-906594043.ap-northeast-1.elb.amazonaws.com');
+
+const corsOrigins = isDevelopment 
+  ? ['http://localhost:3000', 'http://localhost:5173']
+  : [frontendUrl];
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://splitmate-alb-906594043.ap-northeast-1.elb.amazonaws.com'],
+  origin: corsOrigins,
   credentials: true
 }));
 app.use(express.json());
@@ -79,15 +88,18 @@ passport.deserializeUser((user: any, done) => {
   done(null, user);
 });
 
-// 開発環境かどうかを判定
-const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
-const frontendUrl = isDevelopment ? 'http://localhost:3000' : 'http://splitmate-alb-906594043.ap-northeast-1.elb.amazonaws.com';
-const backendUrl = isDevelopment ? 'http://localhost:3001' : 'http://splitmate-alb-906594043.ap-northeast-1.elb.amazonaws.com';
+console.log('OAuth Configuration:', {
+  NODE_ENV: process.env.NODE_ENV,
+  isDevelopment,
+  frontendUrl,
+  backendUrl,
+  callbackURL: `${backendUrl}/auth/google/callback`
+});
 
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID!,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-  callbackURL: "http://localhost:3001/auth/google/callback",
+  callbackURL: `${backendUrl}/auth/google/callback`,
 },
 (accessToken, refreshToken, profile, done) => {
   console.log('OAuth callback received for user:', profile.displayName);
