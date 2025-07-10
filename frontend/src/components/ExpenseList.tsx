@@ -26,7 +26,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   // リアルタイム表示用の一時的な配分比率を保存
   const [tempRatios, setTempRatios] = useState<Map<string, number>>(new Map());
   // デバウンス用のタイマーを保存
-  const [debounceTimers, setDebounceTimers] = useState<Map<string, NodeJS.Timeout>>(new Map());
+  const [debounceTimers, setDebounceTimers] = useState<Map<string, number>>(new Map());
   // 承認済み精算に関連する費用IDのセット
   const [approvedExpenseIds, setApprovedExpenseIds] = useState<Set<string>>(new Set());
 
@@ -88,7 +88,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     return () => {
       // 全てのデバウンスタイマーをクリア
       debounceTimers.forEach((timer) => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
       });
     };
   }, [debounceTimers]);
@@ -199,13 +199,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     setDebounceTimers(prev => {
       const existingTimer = prev.get(expenseId);
       if (existingTimer) {
-        clearTimeout(existingTimer);
+        window.clearTimeout(existingTimer);
       }
       return prev;
     });
 
     // 新しいタイマーを設定（500ms後にAPI呼び出し）
-    const newTimer = setTimeout(() => {
+    const newTimer = window.setTimeout(() => {
       debouncedUpdateAllocationRatio(expenseId, husbandRatio);
       // タイマーをクリア
       setDebounceTimers(prev => {
@@ -237,7 +237,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     setDebounceTimers(prev => {
       const existingTimer = prev.get(expenseId);
       if (existingTimer) {
-        clearTimeout(existingTimer);
+        window.clearTimeout(existingTimer);
         const newMap = new Map(prev);
         newMap.delete(expenseId);
         return newMap;
