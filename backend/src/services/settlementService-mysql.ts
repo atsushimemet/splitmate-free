@@ -6,9 +6,12 @@ export const settlementService = {
   // 費用の精算を計算
   calculateSettlement: async (expenseId: string): Promise<ApiResponse<Settlement>> => {
     try {
-      // 費用を取得
+      // 費用を取得（個別配分比率を含む）
       const expenseQuery = `
         SELECT id, category, description, amount, payer_id as payerId,
+               custom_husband_ratio as customHusbandRatio,
+               custom_wife_ratio as customWifeRatio,
+               uses_custom_ratio as usesCustomRatio,
                created_at as createdAt, updated_at as updatedAt
         FROM expenses 
         WHERE id = ?
@@ -24,20 +27,30 @@ export const settlementService = {
         };
       }
 
-      // 配分比率を取得
-      const ratioResponse = await allocationRatioService.getAllocationRatio();
-      if (!ratioResponse.success || !ratioResponse.data) {
-        return {
-          success: false,
-          error: '配分比率の取得に失敗しました'
-        };
-      }
+      // 配分比率を決定（個別配分比率 or 全体配分比率）
+      let husbandRatio: number;
+      let wifeRatio: number;
 
-      const ratio = ratioResponse.data;
+      if (expense.usesCustomRatio && expense.customHusbandRatio !== null && expense.customWifeRatio !== null) {
+        // 個別配分比率を使用
+        husbandRatio = expense.customHusbandRatio;
+        wifeRatio = expense.customWifeRatio;
+      } else {
+        // 全体配分比率を取得
+        const ratioResponse = await allocationRatioService.getAllocationRatio();
+        if (!ratioResponse.success || !ratioResponse.data) {
+          return {
+            success: false,
+            error: '配分比率の取得に失敗しました'
+          };
+        }
+        husbandRatio = ratioResponse.data.husbandRatio;
+        wifeRatio = ratioResponse.data.wifeRatio;
+      }
       
       // 精算金額を計算
-      const husbandAmount = Math.round(expense.amount * ratio.husbandRatio);
-      const wifeAmount = Math.round(expense.amount * ratio.wifeRatio);
+      const husbandAmount = Math.round(expense.amount * husbandRatio);
+      const wifeAmount = Math.round(expense.amount * wifeRatio);
       
       // 支払者を取得（入力者から）
       const userQuery = `
@@ -105,7 +118,12 @@ export const settlementService = {
           settlementAmount,
           status: 'pending',
           createdAt: new Date(now),
-          updatedAt: new Date(now)
+          updatedAt: new Date(now),
+          expenseDescription: expense.description,
+          expenseAmount: expense.amount,
+          customHusbandRatio: expense.customHusbandRatio,
+          customWifeRatio: expense.customWifeRatio,
+          usesCustomRatio: expense.usesCustomRatio || false
         }
       };
     } catch (error) {
@@ -132,11 +150,15 @@ export const settlementService = {
 
       // 更新された精算を取得
       const getQuery = `
-        SELECT id, expense_id as expenseId, husband_amount as husbandAmount, 
-               wife_amount as wifeAmount, payer, receiver, settlement_amount as settlementAmount,
-               status, created_at as createdAt, updated_at as updatedAt
-        FROM settlements 
-        WHERE id = ?
+        SELECT s.id, s.expense_id as expenseId, s.husband_amount as husbandAmount, 
+               s.wife_amount as wifeAmount, s.payer, s.receiver, s.settlement_amount as settlementAmount,
+               s.status, s.created_at as createdAt, s.updated_at as updatedAt,
+               e.description as expenseDescription, e.amount as expenseAmount,
+               e.custom_husband_ratio as customHusbandRatio, e.custom_wife_ratio as customWifeRatio,
+               e.uses_custom_ratio as usesCustomRatio
+        FROM settlements s
+        JOIN expenses e ON s.expense_id = e.id
+        WHERE s.id = ?
       `;
       
       const [rows] = await pool.execute(getQuery, [settlementId]);
@@ -161,7 +183,12 @@ export const settlementService = {
           settlementAmount: result.settlementAmount,
           status: result.status,
           createdAt: new Date(result.createdAt),
-          updatedAt: new Date(result.updatedAt)
+          updatedAt: new Date(result.updatedAt),
+          expenseDescription: result.expenseDescription,
+          expenseAmount: result.expenseAmount,
+          customHusbandRatio: result.customHusbandRatio,
+          customWifeRatio: result.customWifeRatio,
+          usesCustomRatio: result.usesCustomRatio || false
         }
       };
     } catch (error) {
@@ -188,11 +215,15 @@ export const settlementService = {
 
       // 更新された精算を取得
       const getQuery = `
-        SELECT id, expense_id as expenseId, husband_amount as husbandAmount, 
-               wife_amount as wifeAmount, payer, receiver, settlement_amount as settlementAmount,
-               status, created_at as createdAt, updated_at as updatedAt
-        FROM settlements 
-        WHERE id = ?
+        SELECT s.id, s.expense_id as expenseId, s.husband_amount as husbandAmount, 
+               s.wife_amount as wifeAmount, s.payer, s.receiver, s.settlement_amount as settlementAmount,
+               s.status, s.created_at as createdAt, s.updated_at as updatedAt,
+               e.description as expenseDescription, e.amount as expenseAmount,
+               e.custom_husband_ratio as customHusbandRatio, e.custom_wife_ratio as customWifeRatio,
+               e.uses_custom_ratio as usesCustomRatio
+        FROM settlements s
+        JOIN expenses e ON s.expense_id = e.id
+        WHERE s.id = ?
       `;
       
       const [rows] = await pool.execute(getQuery, [settlementId]);
@@ -217,7 +248,12 @@ export const settlementService = {
           settlementAmount: result.settlementAmount,
           status: result.status,
           createdAt: new Date(result.createdAt),
-          updatedAt: new Date(result.updatedAt)
+          updatedAt: new Date(result.updatedAt),
+          expenseDescription: result.expenseDescription,
+          expenseAmount: result.expenseAmount,
+          customHusbandRatio: result.customHusbandRatio,
+          customWifeRatio: result.customWifeRatio,
+          usesCustomRatio: result.usesCustomRatio || false
         }
       };
     } catch (error) {
@@ -236,7 +272,9 @@ export const settlementService = {
         SELECT s.id, s.expense_id as expenseId, s.husband_amount as husbandAmount,
                s.wife_amount as wifeAmount, s.payer, s.receiver, s.settlement_amount as settlementAmount,
                s.status, s.created_at as createdAt, s.updated_at as updatedAt,
-               e.description as expenseDescription, e.amount as expenseAmount
+               e.description as expenseDescription, e.amount as expenseAmount,
+               e.custom_husband_ratio as customHusbandRatio, e.custom_wife_ratio as customWifeRatio,
+               e.uses_custom_ratio as usesCustomRatio
         FROM settlements s
         JOIN expenses e ON s.expense_id = e.id
         ORDER BY s.created_at DESC
@@ -256,7 +294,10 @@ export const settlementService = {
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),
         expenseDescription: row.expenseDescription,
-        expenseAmount: row.expenseAmount
+        expenseAmount: row.expenseAmount,
+        customHusbandRatio: row.customHusbandRatio,
+        customWifeRatio: row.customWifeRatio,
+        usesCustomRatio: row.usesCustomRatio || false
       }));
       
       return {

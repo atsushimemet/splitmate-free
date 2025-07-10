@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../database/connection-mysql';
-import { ApiResponse, CreateExpenseRequest, Expense, MonthlyExpenseStats, MonthlyExpenseSummary } from '../types';
+import { ApiResponse, CreateExpenseRequest, Expense, MonthlyExpenseStats, MonthlyExpenseSummary, UpdateExpenseAllocationRatioRequest } from '../types';
+import { settlementService } from './settlementService-mysql';
 
 export class ExpenseService {
   /**
@@ -16,9 +17,18 @@ export class ExpenseService {
       const expenseYear = data.expenseYear || now.getFullYear();
       const expenseMonth = data.expenseMonth || (now.getMonth() + 1);
       
+      // 個別配分比率の設定
+      const customHusbandRatio = data.customHusbandRatio || null;
+      const customWifeRatio = data.customWifeRatio || null;
+      const usesCustomRatio = data.usesCustomRatio || false;
+      
       const sql = `
-        INSERT INTO expenses (id, category, description, amount, payer_id, expense_year, expense_month, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO expenses (
+          id, category, description, amount, payer_id, expense_year, expense_month, 
+          custom_husband_ratio, custom_wife_ratio, uses_custom_ratio, 
+          created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       await pool.execute(sql, [
@@ -29,6 +39,9 @@ export class ExpenseService {
         data.payerId, 
         expenseYear,
         expenseMonth,
+        customHusbandRatio,
+        customWifeRatio,
+        usesCustomRatio,
         mysqlDateTime, 
         mysqlDateTime
       ]);
@@ -36,6 +49,14 @@ export class ExpenseService {
       // 作成された費用を取得
       const result = await ExpenseService.getExpenseById(id);
       if (result.success && result.data) {
+        // 費用作成後、精算を計算
+        try {
+          await settlementService.calculateSettlement(id);
+        } catch (error) {
+          console.error(`Error calculating settlement for new expense ${id}:`, error);
+          // 精算の計算が失敗しても、費用の作成は成功として扱う
+        }
+        
         return {
           success: true,
           data: result.data,
@@ -77,6 +98,9 @@ export class ExpenseService {
         payerId: row.payer_id,
         expenseYear: row.expense_year,
         expenseMonth: row.expense_month,
+        customHusbandRatio: row.custom_husband_ratio,
+        customWifeRatio: row.custom_wife_ratio,
+        usesCustomRatio: row.uses_custom_ratio || false,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       }));
@@ -116,6 +140,9 @@ export class ExpenseService {
         payerId: row.payer_id,
         expenseYear: row.expense_year,
         expenseMonth: row.expense_month,
+        customHusbandRatio: row.custom_husband_ratio,
+        customWifeRatio: row.custom_wife_ratio,
+        usesCustomRatio: row.uses_custom_ratio || false,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       }));
@@ -290,6 +317,9 @@ export class ExpenseService {
         payerId: row.payer_id,
         expenseYear: row.expense_year,
         expenseMonth: row.expense_month,
+        customHusbandRatio: row.custom_husband_ratio,
+        customWifeRatio: row.custom_wife_ratio,
+        usesCustomRatio: row.uses_custom_ratio || false,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       };
@@ -395,6 +425,70 @@ export class ExpenseService {
       return {
         success: false,
         error: `Failed to fetch expense stats: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
+   * 費用の個別配分比率を更新する
+   */
+  static async updateExpenseAllocationRatio(
+    expenseId: string, 
+    data: UpdateExpenseAllocationRatioRequest
+  ): Promise<ApiResponse<Expense>> {
+    try {
+      const now = new Date();
+      const mysqlDateTime = now.toISOString().slice(0, 19).replace('T', ' ');
+      
+      const sql = `
+        UPDATE expenses 
+        SET custom_husband_ratio = ?, custom_wife_ratio = ?, uses_custom_ratio = ?, updated_at = ?
+        WHERE id = ?
+      `;
+      
+      const [result] = await pool.execute(sql, [
+        data.customHusbandRatio,
+        data.customWifeRatio,
+        data.usesCustomRatio,
+        mysqlDateTime,
+        expenseId
+      ]);
+      
+      const affectedRows = (result as any).affectedRows;
+      
+      if (affectedRows === 0) {
+        return {
+          success: false,
+          error: 'Expense not found'
+        };
+      }
+      
+      // 個別配分比率の更新後、該当する精算を再計算
+      try {
+        await settlementService.calculateSettlement(expenseId);
+      } catch (error) {
+        console.error(`Error recalculating settlement for expense ${expenseId}:`, error);
+        // 精算の再計算が失敗しても、費用の更新は成功として扱う
+      }
+      
+      // 更新された費用を取得
+      const expenseResult = await ExpenseService.getExpenseById(expenseId);
+      if (expenseResult.success && expenseResult.data) {
+        return {
+          success: true,
+          data: expenseResult.data,
+          message: 'Expense allocation ratio updated successfully'
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Failed to retrieve updated expense'
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to update expense allocation ratio: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }
