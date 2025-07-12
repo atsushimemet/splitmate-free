@@ -80,17 +80,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 費用を削除
-router.delete('/:id', async (req, res) => {
-  try {
-    const result = await ExpenseService.deleteExpense(req.params.id);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
-
-// 費用を一括削除
+// 費用を一括削除（個別削除より先に定義）
 router.delete('/bulk', async (req, res) => {
   try {
     const { ids } = req.body;
@@ -100,6 +90,16 @@ router.delete('/bulk', async (req, res) => {
     }
     
     const result = await ExpenseService.bulkDeleteExpenses(ids);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// 費用を削除
+router.delete('/:id', async (req, res) => {
+  try {
+    const result = await ExpenseService.deleteExpense(req.params.id);
     res.json(result);
   } catch (error) {
     res.status(500).json({ success: false, error: 'Internal server error' });
