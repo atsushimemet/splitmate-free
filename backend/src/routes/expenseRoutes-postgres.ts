@@ -13,6 +13,16 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 費用統計を取得
+router.get('/stats', async (req, res) => {
+  try {
+    const result = await ExpenseService.getExpenseStats();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // 月次費用を取得
 router.get('/monthly/:year/:month', async (req, res) => {
   try {

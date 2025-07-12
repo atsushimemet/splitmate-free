@@ -168,18 +168,25 @@ export const settlementService = {
   // 精算を承認
   approveSettlement: async (settlementId: string): Promise<ApiResponse<Settlement>> => {
     try {
-      const query = `
+      // まず承認状態に更新
+      const updateQuery = `
         UPDATE settlements 
         SET status = 'approved', updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
-        RETURNING s.*, e.description as expense_description, e.amount as expense_amount,
-                 e.custom_husband_ratio, e.custom_wife_ratio, e.uses_custom_ratio
+      `;
+      
+      await pool.query(updateQuery, [settlementId]);
+      
+      // 更新後のデータを費用情報と一緒に取得
+      const selectQuery = `
+        SELECT s.*, e.description as expense_description, e.amount as expense_amount,
+               e.custom_husband_ratio, e.custom_wife_ratio, e.uses_custom_ratio
         FROM settlements s
         JOIN expenses e ON s.expense_id = e.id
         WHERE s.id = $1
       `;
       
-      const result = await pool.query(query, [settlementId]);
+      const result = await pool.query(selectQuery, [settlementId]);
       const settlement = result.rows[0];
       
       if (settlement) {
@@ -221,18 +228,25 @@ export const settlementService = {
   // 精算を完了
   completeSettlement: async (settlementId: string): Promise<ApiResponse<Settlement>> => {
     try {
-      const query = `
+      // まず完了状態に更新
+      const updateQuery = `
         UPDATE settlements 
         SET status = 'completed', updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
-        RETURNING s.*, e.description as expense_description, e.amount as expense_amount,
-                 e.custom_husband_ratio, e.custom_wife_ratio, e.uses_custom_ratio
+      `;
+      
+      await pool.query(updateQuery, [settlementId]);
+      
+      // 更新後のデータを費用情報と一緒に取得
+      const selectQuery = `
+        SELECT s.*, e.description as expense_description, e.amount as expense_amount,
+               e.custom_husband_ratio, e.custom_wife_ratio, e.uses_custom_ratio
         FROM settlements s
         JOIN expenses e ON s.expense_id = e.id
         WHERE s.id = $1
       `;
       
-      const result = await pool.query(query, [settlementId]);
+      const result = await pool.query(selectQuery, [settlementId]);
       const settlement = result.rows[0];
       
       if (settlement) {

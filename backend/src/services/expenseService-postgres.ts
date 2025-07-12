@@ -389,4 +389,36 @@ export class ExpenseService {
       };
     }
   }
+
+  /**
+   * 費用の統計情報を取得する
+   */
+  static async getExpenseStats(): Promise<ApiResponse<any>> {
+    try {
+      const sql = `
+        SELECT 
+          COUNT(*) as total_expenses,
+          SUM(amount) as total_amount,
+          MIN(amount) as min_amount
+        FROM expenses
+      `;
+      
+      const result = await pool.query(sql);
+      const row = result.rows[0];
+      
+      return {
+        success: true,
+        data: {
+          totalExpenses: parseInt(row.total_expenses) || 0,
+          totalAmount: parseInt(row.total_amount) || 0,
+          minAmount: parseInt(row.min_amount) || 0
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `費用統計の取得に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
 } 
