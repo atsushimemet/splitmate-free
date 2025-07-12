@@ -19,7 +19,8 @@ declare global {
       displayName?: string;
       emails?: { value: string }[];
       photos?: { value: string }[];
-      [key: string]: any;
+      accessToken?: string;
+      refreshToken?: string;
     }
     interface Request {
       user?: User;

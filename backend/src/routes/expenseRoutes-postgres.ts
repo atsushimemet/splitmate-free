@@ -30,7 +30,8 @@ router.get('/monthly/:year/:month', async (req, res) => {
     const month = parseInt(req.params.month);
     
     if (isNaN(year) || isNaN(month)) {
-      return res.status(400).json({ success: false, error: 'Invalid year or month' });
+      res.status(400).json({ success: false, error: 'Invalid year or month' });
+      return;
     }
     
     const result = await ExpenseService.getExpensesByMonth(year, month);
@@ -47,7 +48,8 @@ router.get('/monthly/:year/:month/summary', async (req, res) => {
     const month = parseInt(req.params.month);
     
     if (isNaN(year) || isNaN(month)) {
-      return res.status(400).json({ success: false, error: 'Invalid year or month' });
+      res.status(400).json({ success: false, error: 'Invalid year or month' });
+      return;
     }
     
     const result = await ExpenseService.getMonthlyExpenseSummary(year, month);
@@ -86,7 +88,8 @@ router.delete('/bulk', async (req, res) => {
     const { ids } = req.body;
     
     if (!Array.isArray(ids)) {
-      return res.status(400).json({ success: false, error: 'ids must be an array' });
+      res.status(400).json({ success: false, error: 'ids must be an array' });
+      return;
     }
     
     const result = await ExpenseService.bulkDeleteExpenses(ids);
