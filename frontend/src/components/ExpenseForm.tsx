@@ -229,23 +229,25 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
 
         {/* 立替者選択 */}
         <div>
-          <label htmlFor="payerId" className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             立替者 *
           </label>
-          <select
-            id="payerId"
-            value={formData.payerId}
-            onChange={(e) => handleInputChange('payerId', e.target.value)}
-            className="input-field"
-            required
-          >
-            <option value="">立替者を選択してください</option>
+          <div className="grid grid-cols-2 gap-2">
             {DEFAULT_USERS.map(user => (
-              <option key={user.id} value={user.id}>
+              <button
+                key={user.id}
+                type="button"
+                onClick={() => handleInputChange('payerId', user.id)}
+                className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                  formData.payerId === user.id
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                }`}
+              >
                 {user.name}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* 送信ボタンとクリアボタン */}
