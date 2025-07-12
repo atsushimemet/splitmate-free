@@ -2,7 +2,7 @@
 [build]
   # フロントエンドのビルドディレクトリ
   base = "frontend"
-  publish = "frontend/dist"
+  publish = "dist"
   command = "npm run build"
 
 [build.environment]
