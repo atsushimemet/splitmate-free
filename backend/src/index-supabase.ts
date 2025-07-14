@@ -49,6 +49,15 @@ console.log('🌍 Environment:', NODE_ENV);
 console.log('🎨 Frontend URL:', frontendUrl);
 console.log('🔗 Backend URL:', backendUrl);
 
+// 詳細なセッション設定ログ
+console.log('🍪 Session Configuration:');
+console.log('   NODE_ENV:', NODE_ENV);
+console.log('   SESSION_SECRET:', process.env.SESSION_SECRET ? 'Set' : 'Not set');
+console.log('   Cookie secure:', NODE_ENV === 'production');
+console.log('   Cookie sameSite:', NODE_ENV === 'production' ? 'none' : 'lax');
+console.log('   Cookie httpOnly: true');
+console.log('   Cookie maxAge: 24 hours');
+
 // セッション設定
 const PgSession = connectPgSimple(session);
 
@@ -141,7 +150,16 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     }),
     (req, res) => {
       console.log('🎯 AUTH CALLBACK - Authentication successful');
+      console.log('🎯 AUTH CALLBACK - Session ID:', (req as any).sessionID);
       console.log('🎯 AUTH CALLBACK - User:', req.user?.displayName);
+      console.log('🎯 AUTH CALLBACK - Is authenticated:', req.isAuthenticated?.());
+      console.log('🎯 AUTH CALLBACK - Session data:', JSON.stringify((req as any).session, null, 2));
+      console.log('🎯 AUTH CALLBACK - Cookie will be set with:', {
+        secure: NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
+        domain: NODE_ENV === 'production' ? 'auto' : 'localhost'
+      });
       console.log('🎯 AUTH CALLBACK - Redirect URL:', `${frontendUrl}/auth/callback`);
       
       res.redirect(`${frontendUrl}/auth/callback`);
@@ -156,6 +174,11 @@ app.get('/auth/status', (req, res) => {
   console.log('🔍 AUTH STATUS CHECK - Session ID:', (req as any).sessionID);
   console.log('🔍 AUTH STATUS CHECK - Is authenticated:', req.isAuthenticated?.());
   console.log('🔍 AUTH STATUS CHECK - User:', req.user?.displayName);
+  console.log('🔍 AUTH STATUS CHECK - Cookie header:', req.headers.cookie);
+  console.log('🔍 AUTH STATUS CHECK - Origin:', req.headers.origin);
+  console.log('🔍 AUTH STATUS CHECK - Referer:', req.headers.referer);
+  console.log('🔍 AUTH STATUS CHECK - User-Agent:', req.headers['user-agent']?.substring(0, 100));
+  console.log('🔍 AUTH STATUS CHECK - Session data:', JSON.stringify((req as any).session, null, 2));
   
   res.json({
     authenticated: req.isAuthenticated?.() || false,
