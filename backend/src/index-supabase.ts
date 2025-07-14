@@ -66,17 +66,22 @@ app.use(session({
     pool: pool,
     tableName: 'session',
     createTableIfMissing: true,
+    errorLog: (error) => {
+      console.error('🚨 SESSION STORE ERROR:', error);
+    },
   }),
   secret: process.env.SESSION_SECRET || 'your-session-secret',
   resave: true, // 認証時にセッションを強制保存
   saveUninitialized: false,
-  name: process.env.SESSION_NAME || 'splitmate-session',
+  name: 'splitmate-session', // 固定値に変更
   cookie: {
     secure: NODE_ENV === 'production',
     httpOnly: true,
     maxAge: parseInt(process.env.SESSION_MAX_AGE || '86400000'), // 24 hours
     sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
+    // domainを設定しない（自動的に現在のドメインが使用される）
   },
+  rolling: true, // リクエストごとにクッキーの有効期限を更新
 }));
 
 // ミドルウェア設定
@@ -236,6 +241,48 @@ app.get('/auth/check-session', (req, res) => {
     testValue: (req as any).session.testValue,
     sessionData: (req as any).session
   });
+});
+
+// PostgreSQL セッションストアの直接確認
+app.get('/auth/debug-session-store', async (req, res) => {
+  try {
+    const sessionId = (req as any).sessionID;
+    console.log('🔍 DEBUG SESSION STORE - Current Session ID:', sessionId);
+    console.log('🔍 DEBUG SESSION STORE - Cookie header:', req.headers.cookie);
+    
+    // PostgreSQLから直接セッションを確認
+    const query = 'SELECT sid, sess, expire FROM session ORDER BY expire DESC LIMIT 10';
+    const result = await pool.query(query);
+    
+    console.log('🔍 DEBUG SESSION STORE - Sessions in database:');
+    result.rows.forEach((row, index) => {
+      console.log(`  ${index + 1}. SID: ${row.sid}`);
+      console.log(`     Expire: ${row.expire}`);
+      console.log(`     Session: ${JSON.stringify(row.sess, null, 2)}`);
+    });
+    
+    // 現在のセッションIDでの検索
+    const currentSessionQuery = 'SELECT sid, sess, expire FROM session WHERE sid = $1';
+    const currentSessionResult = await pool.query(currentSessionQuery, [sessionId]);
+    
+    console.log('🔍 DEBUG SESSION STORE - Current session in database:');
+    if (currentSessionResult.rows.length > 0) {
+      console.log('  Found session:', JSON.stringify(currentSessionResult.rows[0], null, 2));
+    } else {
+      console.log('  No session found for current ID');
+    }
+    
+    res.json({
+      currentSessionId: sessionId,
+      cookieHeader: req.headers.cookie,
+      allSessions: result.rows,
+      currentSessionInDb: currentSessionResult.rows[0] || null
+    });
+  } catch (error) {
+    console.error('🚨 DEBUG SESSION STORE ERROR:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: 'Database query failed', details: errorMessage });
+  }
 });
 
 // ログアウト
