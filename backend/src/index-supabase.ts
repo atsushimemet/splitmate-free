@@ -53,6 +53,8 @@ console.log('🔗 Backend URL:', backendUrl);
 console.log('🍪 Session Configuration:');
 console.log('   NODE_ENV:', NODE_ENV);
 console.log('   SESSION_SECRET:', process.env.SESSION_SECRET ? 'Set' : 'Not set');
+console.log('   SESSION_SECRET length:', process.env.SESSION_SECRET?.length || 0);
+console.log('   SESSION_SECRET first 10 chars:', process.env.SESSION_SECRET?.substring(0, 10) || 'N/A');
 console.log('   Cookie secure:', NODE_ENV === 'production');
 console.log('   Cookie sameSite:', NODE_ENV === 'production' ? 'none' : 'lax');
 console.log('   Cookie httpOnly: true');
@@ -201,6 +203,22 @@ app.get('/auth/status', (req, res) => {
   console.log('🔍 AUTH STATUS CHECK - User-Agent:', req.headers['user-agent']?.substring(0, 100));
   console.log('🔍 AUTH STATUS CHECK - Session data:', JSON.stringify((req as any).session, null, 2));
   
+  // クッキー解析の詳細ログ
+  if (req.headers.cookie) {
+    const cookies = req.headers.cookie.split(';').map(cookie => cookie.trim());
+    console.log('🔍 AUTH STATUS CHECK - All cookies:', cookies);
+    
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('splitmate-session='));
+    if (sessionCookie) {
+      console.log('🔍 AUTH STATUS CHECK - Session cookie found:', sessionCookie);
+      const cookieValue = sessionCookie.split('=')[1];
+      console.log('🔍 AUTH STATUS CHECK - Session cookie value:', cookieValue);
+      console.log('🔍 AUTH STATUS CHECK - Session cookie decoded:', decodeURIComponent(cookieValue));
+    } else {
+      console.log('🔍 AUTH STATUS CHECK - No session cookie found');
+    }
+  }
+  
   res.json({
     authenticated: req.isAuthenticated?.() || false,
     user: req.user || null
@@ -282,6 +300,52 @@ app.get('/auth/debug-session-store', async (req, res) => {
     console.error('🚨 DEBUG SESSION STORE ERROR:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: 'Database query failed', details: errorMessage });
+  }
+});
+
+// 手動セッション検証エンドポイント
+app.get('/auth/verify-cookie', (req, res) => {
+  console.log('🧪 MANUAL COOKIE VERIFICATION');
+  console.log('   Cookie header:', req.headers.cookie);
+  console.log('   Current session ID:', (req as any).sessionID);
+  
+  if (req.headers.cookie) {
+    const cookies = req.headers.cookie.split(';').map(cookie => cookie.trim());
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('splitmate-session='));
+    
+    if (sessionCookie) {
+      const cookieValue = sessionCookie.split('=')[1];
+      const decodedCookie = decodeURIComponent(cookieValue);
+      
+      console.log('   Session cookie found:', sessionCookie);
+      console.log('   Cookie value:', cookieValue);
+      console.log('   Decoded cookie:', decodedCookie);
+      
+      // セッションシークレットを使った手動検証
+      const sessionSecret = process.env.SESSION_SECRET || 'your-session-secret';
+      console.log('   Session secret length:', sessionSecret.length);
+      console.log('   Session secret prefix:', sessionSecret.substring(0, 10));
+      
+      res.json({
+        success: true,
+        currentSessionId: (req as any).sessionID,
+        cookieValue,
+        decodedCookie,
+        sessionSecretLength: sessionSecret.length,
+        sessionSecretPrefix: sessionSecret.substring(0, 10)
+      });
+    } else {
+      res.json({
+        success: false,
+        error: 'No session cookie found',
+        allCookies: cookies
+      });
+    }
+  } else {
+    res.json({
+      success: false,
+      error: 'No cookies in request'
+    });
   }
 });
 
