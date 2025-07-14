@@ -68,7 +68,7 @@ app.use(session({
     createTableIfMissing: true,
   }),
   secret: process.env.SESSION_SECRET || 'your-session-secret',
-  resave: false,
+  resave: true, // 認証時にセッションを強制保存
   saveUninitialized: false,
   name: process.env.SESSION_NAME || 'splitmate-session',
   cookie: {
@@ -107,6 +107,14 @@ passport.serializeUser((user: any, done) => {
 
 passport.deserializeUser((user: any, done) => {
   console.log('🔓 DESERIALIZE USER - Loading user from session:', user?.displayName);
+  console.log('🔓 DESERIALIZE USER - User data:', JSON.stringify(user, null, 2));
+  
+  if (!user) {
+    console.error('🚨 DESERIALIZE USER - No user data found in session');
+    return done(null, false);
+  }
+  
+  console.log('✅ DESERIALIZE USER - Successfully loaded user');
   done(null, user);
 });
 
@@ -162,7 +170,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       });
       console.log('🎯 AUTH CALLBACK - Redirect URL:', `${frontendUrl}/auth/callback`);
       
-      res.redirect(`${frontendUrl}/auth/callback`);
+      // セッションを明示的に保存してからリダイレクト
+      (req as any).session.save((err: any) => {
+        if (err) {
+          console.error('🚨 SESSION SAVE ERROR:', err);
+        } else {
+          console.log('✅ SESSION SAVED SUCCESSFULLY');
+        }
+        res.redirect(`${frontendUrl}/auth/callback`);
+      });
     }
   );
 } else {
@@ -183,6 +199,42 @@ app.get('/auth/status', (req, res) => {
   res.json({
     authenticated: req.isAuthenticated?.() || false,
     user: req.user || null
+  });
+});
+
+// セッションテスト用エンドポイント
+app.get('/auth/test-session', (req, res) => {
+  console.log('🧪 SESSION TEST - Session ID:', (req as any).sessionID);
+  console.log('🧪 SESSION TEST - Session data:', JSON.stringify((req as any).session, null, 2));
+  
+  // セッションに値を設定
+  (req as any).session.testValue = 'test-' + Date.now();
+  
+  (req as any).session.save((err: any) => {
+    if (err) {
+      console.error('🚨 TEST SESSION SAVE ERROR:', err);
+      res.json({ error: 'Session save failed', details: err.message });
+    } else {
+      console.log('✅ TEST SESSION SAVED');
+      res.json({ 
+        sessionId: (req as any).sessionID, 
+        testValue: (req as any).session.testValue,
+        message: 'Session saved successfully'
+      });
+    }
+  });
+});
+
+// セッション確認用エンドポイント
+app.get('/auth/check-session', (req, res) => {
+  console.log('🔍 SESSION CHECK - Session ID:', (req as any).sessionID);
+  console.log('🔍 SESSION CHECK - Test value:', (req as any).session.testValue);
+  console.log('🔍 SESSION CHECK - Session data:', JSON.stringify((req as any).session, null, 2));
+  
+  res.json({
+    sessionId: (req as any).sessionID,
+    testValue: (req as any).session.testValue,
+    sessionData: (req as any).session
   });
 });
 
