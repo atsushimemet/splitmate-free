@@ -184,6 +184,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         } else {
           console.log('✅ SESSION SAVED SUCCESSFULLY');
         }
+        console.log('Session cookie settings:', (req as any).session.cookie);
         res.redirect(`${frontendUrl}/auth/callback`);
       });
     }
