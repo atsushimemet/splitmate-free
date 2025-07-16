@@ -21,5 +21,5 @@ COPY backend ./backend
 # Expose port
 EXPOSE 3001
 
-# Start the PostgreSQL development server
-CMD ["npm", "run", "dev:postgres", "--workspace=backend"] 
+# Start the Supabase development server with JWT authentication
+CMD ["npm", "run", "dev:supabase", "--workspace=backend"] 

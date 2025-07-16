@@ -39,12 +39,12 @@ services:
     networks:
       - splitmate-network-postgres
 
-  # Backend API (PostgreSQL Development)
+  # Backend API (Supabase JWT Development)
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile.postgres.dev
-    container_name: splitmate-backend-postgres-dev
+    container_name: splitmate-backend-jwt-dev
     restart: unless-stopped
     env_file:
       - backend/.env.postgres

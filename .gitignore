@@ -137,6 +137,9 @@ terraform.rc
 # ADDITIONAL SECURITY PATTERNS
 # =============================================================================
 
+# JWT Secret generation scripts (contains sensitive data)
+scripts/generate-jwt-secret.sh
+
 # SSH keys
 *.pem
 *.key

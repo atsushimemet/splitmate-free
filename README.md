@@ -2,6 +2,24 @@
 Household Expense Settlement System.
 This document is requirements document.
 
+## Authentication
+The application uses JWT (JSON Web Token) authentication with Google OAuth for secure user authentication.
+
+### Authentication Flow
+1. User clicks "Login with Google" button
+2. Redirected to Google OAuth consent screen
+3. After successful authentication, user is redirected back with JWT token
+4. JWT token is stored in browser's localStorage
+5. All subsequent API requests include JWT token in Authorization header
+6. Token expires after 24 hours (configurable via JWT_EXPIRES_IN)
+
+### Environment Variables
+Required environment variables for JWT authentication:
+- `JWT_SECRET`: Secret key for signing JWT tokens
+- `JWT_EXPIRES_IN`: Token expiration time (default: 24h)
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
+
 ## Purpose
 To streamline and automate the monthly household expense settlement process between spouses, reducing manual effort and human error while improving clarity and efficiency.
 

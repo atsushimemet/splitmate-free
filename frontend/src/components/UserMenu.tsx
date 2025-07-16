@@ -12,7 +12,7 @@ export const UserMenu: React.FC = () => {
   if (!user) return null;
 
   const defaultAvatar = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
-  const avatarUrl = user.photos?.[0]?.value || defaultAvatar;
+  const avatarUrl = user.picture || defaultAvatar;
 
   return (
     <div className="relative" ref={menuRef}>
@@ -31,7 +31,7 @@ export const UserMenu: React.FC = () => {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 py-1 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5">
           <div className="px-4 py-2 text-sm text-gray-700 border-b">
-            {user.emails?.[0]?.value}
+            {user.email}
           </div>
           <button
             onClick={logout}
