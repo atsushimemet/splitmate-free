@@ -135,17 +135,7 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
     saveFormDataToStorage(newData);
   };
 
-  const handleClearForm = () => {
-    const clearedData = {
-      description: '',
-      amount: 0,
-      payerId: 'husband-001',
-      expenseYear: currentYear,
-      expenseMonth: currentMonth
-    };
-    setFormData(clearedData);
-    localStorage.removeItem('splitmate-expense-form');
-  };
+  // フォームをクリア機能を削除
 
   return (
     <div className="card">
@@ -250,22 +240,14 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
           </div>
         </div>
 
-        {/* 送信ボタンとクリアボタン */}
-        <div className="space-y-3">
+        {/* 送信ボタン */}
+        <div>
           <button
             type="submit"
             disabled={isLoading || !formData.description || formData.amount <= 0}
             className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? '送信中...' : '入力完了'}
-          </button>
-          
-          <button
-            type="button"
-            onClick={handleClearForm}
-            className="w-full px-4 py-2 text-sm text-gray-600 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-          >
-            フォームをクリア
           </button>
         </div>
       </form>
