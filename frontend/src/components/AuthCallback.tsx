@@ -46,7 +46,7 @@ export const AuthCallback = () => {
     };
 
     handleCallback();
-  }, [setToken, checkAuthStatus, navigate, location]);
+  }, [setToken, checkAuthStatus, navigate, location.search]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

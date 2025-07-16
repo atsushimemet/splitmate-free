@@ -55,8 +55,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // JWTトークンを設定
   const setToken = (token: string) => {
     setStoredToken(token);
-    // トークンが設定されたら認証状態をチェック
-    checkAuthStatus();
+    // トークンが設定されたら認証状態をチェック（非同期で実行）
+    setTimeout(() => {
+      checkAuthStatus();
+    }, 0);
   };
 
   // 認証状態チェック
