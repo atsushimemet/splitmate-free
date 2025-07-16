@@ -72,18 +72,22 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     
     // ストレージイベントリスナーを追加（精算状況変更時の自動更新）
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'settlementUpdated' || e.key === 'allocationRatioUpdated') {
+      if (e.key === 'allocationRatioUpdated') {
         loadApprovedSettlements();
-        if (e.key === 'settlementUpdated') {
-          localStorage.removeItem('settlementUpdated');
-        }
       }
     };
 
+    // カスタムイベントリスナーを追加（支出編集による精算更新時の自動更新）
+    const handleSettlementUpdate = () => {
+      loadApprovedSettlements();
+    };
+
     window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('settlementUpdated', handleSettlementUpdate);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('settlementUpdated', handleSettlementUpdate);
     };
   }, []);
 
