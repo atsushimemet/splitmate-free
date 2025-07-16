@@ -106,8 +106,7 @@ function VerificationModal({ settlement, isOpen, onClose }: VerificationModalPro
       title: '3. 負担額計算',
       items: [
         `夫の負担額: ¥${settlement.husbandAmount.toLocaleString()}`,
-        `妻の負担額: ¥${settlement.wifeAmount.toLocaleString()}`,
-        `差額: ¥${Math.abs(settlement.husbandAmount - settlement.wifeAmount).toLocaleString()}`
+        `妻の負担額: ¥${settlement.wifeAmount.toLocaleString()}`
       ]
     });
 
