@@ -28,6 +28,19 @@ const updateExpenseAllocationRatioSchema = z.object({
   message: 'Husband and wife ratios must sum to 1'
 });
 
+const updateExpenseSchema = z.object({
+  description: z.string().min(1, 'Description is required').optional(),
+  amount: z.number().positive('Amount must be positive').optional(),
+  payerId: z.string().min(1, 'Payer ID is required').optional(),
+  expenseYear: z.number().int().min(2020).max(2099).optional(),
+  expenseMonth: z.number().int().min(1).max(12).optional()
+}).refine((data) => {
+  // At least one field must be provided for update
+  return Object.values(data).some(value => value !== undefined);
+}, {
+  message: 'At least one field must be provided for update'
+});
+
 export class ExpenseController {
   /**
    * 新しい費用を登録
@@ -351,6 +364,48 @@ export class ExpenseController {
       return;
     } catch (error) {
       console.error('Error updating expense allocation ratio:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+      return;
+    }
+  }
+
+  /**
+   * 費用の基本情報を更新
+   */
+  static async updateExpense(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Expense ID is required'
+        });
+      }
+
+      const validationResult = updateExpenseSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          details: validationResult.error.errors
+        });
+      }
+
+      const result = await ExpenseService.updateExpense(id, validationResult.data);
+      
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+      return;
+    } catch (error) {
+      console.error('Error updating expense:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'

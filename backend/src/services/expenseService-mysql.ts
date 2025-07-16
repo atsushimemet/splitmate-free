@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../database/connection-mysql';
-import { ApiResponse, CreateExpenseRequest, Expense, MonthlyExpenseStats, MonthlyExpenseSummary, UpdateExpenseAllocationRatioRequest } from '../types';
+import { ApiResponse, CreateExpenseRequest, Expense, MonthlyExpenseStats, MonthlyExpenseSummary, UpdateExpenseAllocationRatioRequest, UpdateExpenseRequest } from '../types';
 import { settlementService } from './settlementService-mysql';
 
 export class ExpenseService {
@@ -469,6 +469,107 @@ export class ExpenseService {
       return {
         success: false,
         error: `Failed to update expense allocation ratio: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
+   * 費用の基本情報を更新する
+   */
+  static async updateExpense(
+    expenseId: string, 
+    data: UpdateExpenseRequest
+  ): Promise<ApiResponse<Expense>> {
+    try {
+      const now = new Date();
+      const mysqlDateTime = now.toISOString().slice(0, 19).replace('T', ' ');
+      
+      // 更新するフィールドを動的に構築
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+      
+      if (data.description !== undefined) {
+        updateFields.push('description = ?');
+        updateValues.push(data.description);
+      }
+      
+      if (data.amount !== undefined) {
+        updateFields.push('amount = ?');
+        updateValues.push(data.amount);
+      }
+      
+      if (data.payerId !== undefined) {
+        updateFields.push('payer_id = ?');
+        updateValues.push(data.payerId);
+      }
+      
+      if (data.expenseYear !== undefined) {
+        updateFields.push('expense_year = ?');
+        updateValues.push(data.expenseYear);
+      }
+      
+      if (data.expenseMonth !== undefined) {
+        updateFields.push('expense_month = ?');
+        updateValues.push(data.expenseMonth);
+      }
+      
+      // updated_atは常に更新
+      updateFields.push('updated_at = ?');
+      updateValues.push(mysqlDateTime);
+      
+      // WHERE条件用のIDを追加
+      updateValues.push(expenseId);
+      
+      if (updateFields.length === 1) { // updated_atのみの場合
+        return {
+          success: false,
+          error: 'No fields to update'
+        };
+      }
+      
+      const sql = `
+        UPDATE expenses 
+        SET ${updateFields.join(', ')}
+        WHERE id = ?
+      `;
+      
+      const [result] = await pool.execute(sql, updateValues);
+      
+      const affectedRows = (result as any).affectedRows;
+      
+      if (affectedRows === 0) {
+        return {
+          success: false,
+          error: 'Expense not found'
+        };
+      }
+      
+      // 費用の基本情報更新後、該当する精算を再計算
+      try {
+        await settlementService.calculateSettlement(expenseId);
+      } catch (error) {
+        console.error(`Error recalculating settlement for expense ${expenseId}:`, error);
+        // 精算の再計算が失敗しても、費用の更新は成功として扱う
+      }
+      
+      // 更新された費用を取得
+      const expenseResult = await ExpenseService.getExpenseById(expenseId);
+      if (expenseResult.success && expenseResult.data) {
+        return {
+          success: true,
+          data: expenseResult.data,
+          message: 'Expense updated successfully'
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Failed to retrieve updated expense'
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to update expense: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }

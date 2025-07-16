@@ -67,6 +67,14 @@ export interface UpdateExpenseAllocationRatioRequest {
   usesCustomRatio: boolean;
 }
 
+export interface UpdateExpenseRequest {
+  description?: string;
+  amount?: number;
+  payerId?: string;
+  expenseYear?: number;
+  expenseMonth?: number;
+}
+
 export interface UpdateAllocationRatioRequest {
   husbandRatio: number;
   wifeRatio: number;
