@@ -216,6 +216,16 @@ export const settlementApi = {
     }
   },
 
+  // 月次精算一覧を取得
+  getMonthlySettlements: async (year: number, month: number): Promise<ApiResponse<Settlement[]>> => {
+    try {
+      const response = await api.get(`/settlements/monthly/${year}/${month}`);
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, '月次精算一覧の取得に失敗しました');
+    }
+  },
+
   // 精算を計算
   calculateSettlement: async (expenseId: string): Promise<ApiResponse<Settlement>> => {
     try {
@@ -229,7 +239,7 @@ export const settlementApi = {
   // 精算を承認
   approveSettlement: async (settlementId: string): Promise<ApiResponse<Settlement>> => {
     try {
-      const response = await api.put(`/settlements/${settlementId}/approve`);
+      const response = await api.put(`/settlements/approve/${settlementId}`);
       return response.data;
     } catch (error: any) {
       return formatError(error, '精算の承認に失敗しました');
@@ -239,7 +249,7 @@ export const settlementApi = {
   // 精算を完了
   completeSettlement: async (settlementId: string): Promise<ApiResponse<Settlement>> => {
     try {
-      const response = await api.put(`/settlements/${settlementId}/complete`);
+      const response = await api.put(`/settlements/complete/${settlementId}`);
       return response.data;
     } catch (error: any) {
       return formatError(error, '精算の完了に失敗しました');

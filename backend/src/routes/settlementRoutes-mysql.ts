@@ -5,9 +5,9 @@ const router = Router();
 
 // 精算関連のルート
 router.post('/calculate/:expenseId', SettlementController.calculateSettlement);
-router.put('/:settlementId/approve', SettlementController.approveSettlement);
-router.put('/:settlementId/complete', SettlementController.completeSettlement);
+router.put('/approve/:settlementId', SettlementController.approveSettlement);
+router.put('/complete/:settlementId', SettlementController.completeSettlement);
 router.get('/', SettlementController.getAllSettlements);
-router.delete('/:settlementId', SettlementController.deleteSettlement);
+router.get('/monthly/:year/:month', SettlementController.getMonthlySettlements);
 
 export default router; 
