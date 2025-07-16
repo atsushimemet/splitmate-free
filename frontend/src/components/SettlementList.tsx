@@ -291,6 +291,11 @@ function FinalSettlementVerificationModal({ settlements, isOpen, onClose }: Fina
                 </div>
               ))}
             </div>
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                ⚪︎⚪︎→△△ ¥~~~は△△が立て替えた金額のうち⚪︎⚪︎が支払うべき金額を表します
+              </p>
+            </div>
           </div>
 
           {/* 合計計算 */}
