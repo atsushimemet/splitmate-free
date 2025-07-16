@@ -8,13 +8,7 @@ export interface JWTUser {
   picture?: string;
 }
 
-declare global {
-  namespace Express {
-    interface Request {
-      jwtUser?: JWTUser;
-    }
-  }
-}
+// Express型拡張は types/express.d.ts に移行
 
 export interface JWTPayload {
   id: string;
