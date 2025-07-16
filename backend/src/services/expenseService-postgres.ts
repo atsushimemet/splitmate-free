@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../database/connection-postgres';
 import { ApiResponse, CreateExpenseRequest, Expense, MonthlyExpenseStats, MonthlyExpenseSummary, UpdateExpenseAllocationRatioRequest, UpdateExpenseRequest } from '../types';
+import { settlementService } from './settlementService-postgres';
 
 export class ExpenseService {
   /**
@@ -47,8 +48,13 @@ export class ExpenseService {
       const expense = result.rows[0];
       
       if (expense) {
-        // 精算を計算 (後で実装)
-        // await settlementService.calculateSettlement(expense.id);
+        // 精算を計算
+        try {
+          await settlementService.calculateSettlement(expense.id);
+        } catch (error) {
+          console.error(`Error calculating settlement for new expense ${expense.id}:`, error);
+          // 精算の計算が失敗しても、費用の作成は成功として扱う
+        }
         
         return {
           success: true,
@@ -357,8 +363,13 @@ export class ExpenseService {
       const expense = result.rows[0];
       
       if (expense) {
-        // 精算を再計算 (後で実装)
-        // await settlementService.calculateSettlement(expense.id);
+        // 精算を再計算
+        try {
+          await settlementService.calculateSettlement(expense.id);
+        } catch (error) {
+          console.error(`Error recalculating settlement for expense ${expense.id}:`, error);
+          // 精算の再計算が失敗しても、費用の更新は成功として扱う
+        }
         
         return {
           success: true,
@@ -456,7 +467,12 @@ export class ExpenseService {
       
       if (expense) {
         // 費用の基本情報更新後、該当する精算を再計算
-        // 精算の再計算は後で実装
+        try {
+          await settlementService.calculateSettlement(expense.id);
+        } catch (error) {
+          console.error(`Error recalculating settlement for updated expense ${expense.id}:`, error);
+          // 精算の再計算が失敗しても、費用の更新は成功として扱う
+        }
         
         return {
           success: true,
