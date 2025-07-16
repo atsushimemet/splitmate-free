@@ -3,13 +3,53 @@ import { AllocationRatio, ApiResponse, CreateExpenseRequest, Expense, ExpenseSta
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
-const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // CORSリクエストでクッキーを送信
-});
+// JWTトークンの取得・設定用のヘルパー関数
+const JWT_STORAGE_KEY = 'splitmate_jwt_token';
+
+const getAuthToken = (): string | null => {
+  return localStorage.getItem(JWT_STORAGE_KEY);
+};
+
+const setAuthToken = (token: string): void => {
+  localStorage.setItem(JWT_STORAGE_KEY, token);
+};
+
+const removeAuthToken = (): void => {
+  localStorage.removeItem(JWT_STORAGE_KEY);
+};
+
+// リクエストインターセプターでJWTトークンを自動追加
+const createAuthenticatedApi = () => {
+  const instance = axios.create({
+    baseURL: `${API_BASE_URL}/api`,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  instance.interceptors.request.use((config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // 認証エラーの場合はトークンを削除
+        removeAuthToken();
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  return instance;
+};
+
+const api = createAuthenticatedApi();
 
 // 認証用のベースクライアント（/apiパスを含まない）
 const authApi = axios.create({
@@ -17,7 +57,6 @@ const authApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
 });
 
 // エラーレスポンスを整形するヘルパー関数
@@ -220,7 +259,16 @@ export const auth = {
   // 認証状態を確認
   checkAuthStatus: async (): Promise<{ authenticated: boolean; user?: any }> => {
     try {
-      const response = await authApi.get('/auth/status');
+      const token = getAuthToken();
+      if (!token) {
+        return { authenticated: false };
+      }
+
+      const response = await authApi.get('/auth/status', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       return response.data;
     } catch (error: any) {
       console.error('Auth status check failed:', error);
@@ -233,16 +281,21 @@ export const auth = {
     window.location.href = `${API_BASE_URL}/auth/google`;
   },
 
+  // JWTトークンを設定
+  setToken: (token: string) => {
+    setAuthToken(token);
+  },
+
   // ログアウト
   logout: async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await authApi.get('/auth/logout');
-      return response.data;
+      removeAuthToken();
+      return { success: true };
     } catch (error: any) {
       console.error('Logout failed:', error);
       return { 
         success: false, 
-        error: error.response?.data?.error || 'ログアウトに失敗しました'
+        error: 'ログアウトに失敗しました'
       };
     }
   }

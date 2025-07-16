@@ -5,8 +5,8 @@ import { auth } from '../services/api';
 interface User {
   id: string;
   displayName: string;
-  emails?: { value: string }[];
-  photos?: { value: string }[];
+  email: string;
+  picture?: string;
 }
 
 // コンテキストの型定義
@@ -16,10 +16,26 @@ interface AuthContextType {
   loading: boolean;
   checkAuthStatus: () => Promise<void>;
   logout: () => Promise<void>;
+  setToken: (token: string) => void;
 }
 
 // コンテキストの作成
 const AuthContext = createContext<AuthContextType | null>(null);
+
+// JWTトークンの保存・取得・削除用のヘルパー関数
+const JWT_STORAGE_KEY = 'splitmate_jwt_token';
+
+const getStoredToken = (): string | null => {
+  return localStorage.getItem(JWT_STORAGE_KEY);
+};
+
+const setStoredToken = (token: string): void => {
+  localStorage.setItem(JWT_STORAGE_KEY, token);
+};
+
+const removeStoredToken = (): void => {
+  localStorage.removeItem(JWT_STORAGE_KEY);
+};
 
 // カスタムフック
 export const useAuth = () => {
@@ -36,9 +52,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // JWTトークンを設定
+  const setToken = (token: string) => {
+    setStoredToken(token);
+    // トークンが設定されたら認証状態をチェック
+    checkAuthStatus();
+  };
+
   // 認証状態チェック
   const checkAuthStatus = async () => {
     console.log('AuthContext: 認証状態チェックを開始します');
+    
+    const token = getStoredToken();
+    if (!token) {
+      console.log('AuthContext: JWTトークンがありません');
+      setIsAuthenticated(false);
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       const data = await auth.checkAuthStatus();
       console.log('AuthContext: APIレスポンス data:', data);
@@ -48,6 +81,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('AuthContext: 認証状態を更新しました - authenticated:', data.authenticated);
     } catch (error) {
       console.error('AuthContext: Auth status check failed:', error);
+      // 認証エラーの場合はトークンを削除
+      removeStoredToken();
       setIsAuthenticated(false);
       setUser(null);
     } finally {
@@ -61,6 +96,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const result = await auth.logout();
       if (result.success) {
+        // JWTトークンを削除
+        removeStoredToken();
         setIsAuthenticated(false);
         setUser(null);
       } else {
@@ -68,6 +105,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('Logout failed:', error);
+      // エラーが発生してもトークンを削除
+      removeStoredToken();
+      setIsAuthenticated(false);
+      setUser(null);
     }
   };
 
@@ -82,7 +123,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       loading,
       checkAuthStatus,
-      logout
+      logout,
+      setToken
     }}>
       {children}
     </AuthContext.Provider>
