@@ -204,10 +204,10 @@ const AppContent = () => {
   };
 
   // 費用が更新された時の処理
-  const handleExpenseUpdate = useCallback((updatedExpense: Expense) => {
+  const handleExpenseUpdate = useCallback(async (updatedExpense: Expense) => {
     console.log('Expense updated:', updatedExpense);
     
-    // 全体データを再取得せず、該当する費用項目だけを更新してレイアウトシフトを防ぐ
+    // 該当する費用項目を更新してレイアウトシフトを防ぐ
     if (activeTab === 'expenses') {
       setExpenses(prevExpenses => 
         prevExpenses.map(expense => 
@@ -221,6 +221,22 @@ const AppContent = () => {
         )
       );
     }
+    
+    // 統計情報を再取得（支出編集により統計が変わる可能性があるため）
+    try {
+      const statsResponse = await expenseApi.getStats();
+      if (statsResponse.success && statsResponse.data) {
+        setStats(statsResponse.data);
+      }
+    } catch (error) {
+      console.error('Failed to refresh stats after expense update:', error);
+    }
+    
+    // 精算一覧に更新を通知（支出編集により精算が再計算される可能性があるため）
+    handleSettlementUpdate();
+    
+    // ExpenseListに精算状況の変更を通知（カスタムイベントで同一タブ内に通知）
+    window.dispatchEvent(new CustomEvent('settlementUpdated'));
   }, [activeTab]);
 
   const generateYearOptions = () => {

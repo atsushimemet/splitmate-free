@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../database/connection-postgres';
-import { ApiResponse, CreateExpenseRequest, Expense, MonthlyExpenseStats, MonthlyExpenseSummary, UpdateExpenseAllocationRatioRequest } from '../types';
+import { ApiResponse, CreateExpenseRequest, Expense, MonthlyExpenseStats, MonthlyExpenseSummary, UpdateExpenseAllocationRatioRequest, UpdateExpenseRequest } from '../types';
+import { settlementService } from './settlementService-postgres';
 
 export class ExpenseService {
   /**
@@ -47,8 +48,13 @@ export class ExpenseService {
       const expense = result.rows[0];
       
       if (expense) {
-        // 精算を計算 (後で実装)
-        // await settlementService.calculateSettlement(expense.id);
+        // 精算を計算
+        try {
+          await settlementService.calculateSettlement(expense.id);
+        } catch (error) {
+          console.error(`Error calculating settlement for new expense ${expense.id}:`, error);
+          // 精算の計算が失敗しても、費用の作成は成功として扱う
+        }
         
         return {
           success: true,
@@ -357,8 +363,13 @@ export class ExpenseService {
       const expense = result.rows[0];
       
       if (expense) {
-        // 精算を再計算 (後で実装)
-        // await settlementService.calculateSettlement(expense.id);
+        // 精算を再計算
+        try {
+          await settlementService.calculateSettlement(expense.id);
+        } catch (error) {
+          console.error(`Error recalculating settlement for expense ${expense.id}:`, error);
+          // 精算の再計算が失敗しても、費用の更新は成功として扱う
+        }
         
         return {
           success: true,
@@ -386,6 +397,110 @@ export class ExpenseService {
       return {
         success: false,
         error: `費用の配分比率更新に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
+   * 費用を更新する
+   */
+  static async updateExpense(expenseId: string, data: UpdateExpenseRequest): Promise<ApiResponse<Expense>> {
+    try {
+      // 更新するフィールドを動的に構築
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+      let paramIndex = 1;
+      
+      if (data.description !== undefined) {
+        updateFields.push(`description = $${paramIndex}`);
+        updateValues.push(data.description);
+        paramIndex++;
+      }
+      
+      if (data.amount !== undefined) {
+        updateFields.push(`amount = $${paramIndex}`);
+        updateValues.push(data.amount);
+        paramIndex++;
+      }
+      
+      if (data.payerId !== undefined) {
+        updateFields.push(`payer_id = $${paramIndex}`);
+        updateValues.push(data.payerId);
+        paramIndex++;
+      }
+      
+      if (data.expenseYear !== undefined) {
+        updateFields.push(`expense_year = $${paramIndex}`);
+        updateValues.push(data.expenseYear);
+        paramIndex++;
+      }
+      
+      if (data.expenseMonth !== undefined) {
+        updateFields.push(`expense_month = $${paramIndex}`);
+        updateValues.push(data.expenseMonth);
+        paramIndex++;
+      }
+      
+      // updated_atは常に更新
+      updateFields.push('updated_at = CURRENT_TIMESTAMP');
+      
+      // WHERE条件用のIDを追加
+      updateValues.push(expenseId);
+      
+      if (updateFields.length === 1) { // updated_atのみの場合
+        return {
+          success: false,
+          error: 'No fields to update'
+        };
+      }
+      
+      const sql = `
+        UPDATE expenses 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+      `;
+      
+      const result = await pool.query(sql, updateValues);
+      
+      const expense = result.rows[0];
+      
+      if (expense) {
+        // 費用の基本情報更新後、該当する精算を再計算
+        try {
+          await settlementService.calculateSettlement(expense.id);
+        } catch (error) {
+          console.error(`Error recalculating settlement for updated expense ${expense.id}:`, error);
+          // 精算の再計算が失敗しても、費用の更新は成功として扱う
+        }
+        
+        return {
+          success: true,
+          data: {
+            id: expense.id,
+            description: expense.description,
+            amount: expense.amount,
+            payerId: expense.payer_id,
+            expenseYear: expense.expense_year,
+            expenseMonth: expense.expense_month,
+            customHusbandRatio: expense.custom_husband_ratio,
+            customWifeRatio: expense.custom_wife_ratio,
+            usesCustomRatio: expense.uses_custom_ratio || false,
+            createdAt: new Date(expense.created_at),
+            updatedAt: new Date(expense.updated_at)
+          },
+          message: 'Expense updated successfully'
+        };
+      } else {
+        return {
+          success: false,
+          error: '費用が見つかりません'
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: `費用の更新に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }

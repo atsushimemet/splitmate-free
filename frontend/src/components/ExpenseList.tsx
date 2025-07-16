@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { allocationApi, expenseApi, settlementApi } from '../services/api';
-import { AllocationRatio, Expense } from '../types';
+import { AllocationRatio, Expense, UpdateExpenseRequest } from '../types';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -29,6 +29,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [debounceTimers, setDebounceTimers] = useState<Map<string, number>>(new Map());
   // 承認済み精算に関連する費用IDのセット
   const [approvedExpenseIds, setApprovedExpenseIds] = useState<Set<string>>(new Set());
+  // 編集モードの状態管理
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<UpdateExpenseRequest>({});
+  const [isUpdatingExpense, setIsUpdatingExpense] = useState(false);
 
   // 全体の配分比率を取得
   useEffect(() => {
@@ -68,18 +72,22 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     
     // ストレージイベントリスナーを追加（精算状況変更時の自動更新）
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'settlementUpdated' || e.key === 'allocationRatioUpdated') {
+      if (e.key === 'allocationRatioUpdated') {
         loadApprovedSettlements();
-        if (e.key === 'settlementUpdated') {
-          localStorage.removeItem('settlementUpdated');
-        }
       }
     };
 
+    // カスタムイベントリスナーを追加（支出編集による精算更新時の自動更新）
+    const handleSettlementUpdate = () => {
+      loadApprovedSettlements();
+    };
+
     window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('settlementUpdated', handleSettlementUpdate);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('settlementUpdated', handleSettlementUpdate);
     };
   }, []);
 
@@ -296,6 +304,56 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     return defaultAllocationRatio?.husbandRatio || 0.7;
   };
 
+  // 編集開始
+  const handleStartEdit = (expense: Expense) => {
+    if (isExpenseApproved(expense.id)) return; // 承認済みは編集不可
+    
+    setEditingExpenseId(expense.id);
+    setEditFormData({
+      description: expense.description,
+      amount: expense.amount,
+      payerId: expense.payerId,
+      expenseYear: expense.expenseYear,
+      expenseMonth: expense.expenseMonth
+    });
+  };
+
+  // 編集キャンセル
+  const handleCancelEdit = () => {
+    setEditingExpenseId(null);
+    setEditFormData({});
+  };
+
+  // 編集保存
+  const handleSaveEdit = async () => {
+    if (!editingExpenseId) return;
+    
+    setIsUpdatingExpense(true);
+    try {
+      const response = await expenseApi.updateExpense(editingExpenseId, editFormData);
+      if (response.success && response.data) {
+        onExpenseUpdate?.(response.data);
+        setEditingExpenseId(null);
+        setEditFormData({});
+      } else {
+        alert(response.error || '費用の更新に失敗しました');
+      }
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      alert('費用の更新に失敗しました');
+    } finally {
+      setIsUpdatingExpense(false);
+    }
+  };
+
+  // 編集フォームの値変更
+  const handleEditFormChange = (field: keyof UpdateExpenseRequest, value: any) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   // チェックボックスの制御
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -408,97 +466,225 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 />
                 
                 <div className="flex-1 space-y-2">
-                  {/* 1行目：金額 削除ボタン */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-gray-900">
-                      ¥{formatAmount(expense.amount)}
-                    </span>
-                    <button
-                      onClick={() => onDelete(expense.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
-                      title="削除"
-                    >
-                      削除
-                    </button>
-                  </div>
+                  {editingExpenseId === expense.id ? (
+                    // 編集モード
+                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                      {/* 編集フォーム：金額 */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700 w-16">金額:</label>
+                        <div className="flex items-center">
+                          <span className="text-gray-500 mr-1">¥</span>
+                          <input
+                            type="number"
+                            value={editFormData.amount || ''}
+                            onChange={(e) => handleEditFormChange('amount', parseInt(e.target.value) || 0)}
+                            className="w-32 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            min="1"
+                            disabled={isUpdatingExpense}
+                          />
+                        </div>
+                      </div>
 
-                  {/* 2行目：年月 */}
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                      {formatMonthYear(expense.expenseYear, expense.expenseMonth)}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {getPayerName(expense.payerId)}
-                    </span>
-                    {isApproved && (
-                      <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                        承認済み
-                      </span>
-                    )}
-                  </div>
+                      {/* 編集フォーム：年月 */}
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium text-gray-700">年:</label>
+                          <select
+                            value={editFormData.expenseYear || ''}
+                            onChange={(e) => handleEditFormChange('expenseYear', parseInt(e.target.value) || new Date().getFullYear())}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={isUpdatingExpense}
+                          >
+                            {Array.from({ length: 4 }, (_, i) => {
+                              const year = new Date().getFullYear() - 2 + i;
+                              return (
+                                <option key={year} value={year}>
+                                  {year}年
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium text-gray-700">月:</label>
+                          <select
+                            value={editFormData.expenseMonth || ''}
+                            onChange={(e) => handleEditFormChange('expenseMonth', parseInt(e.target.value) || new Date().getMonth() + 1)}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={isUpdatingExpense}
+                          >
+                            {Array.from({ length: 12 }, (_, i) => {
+                              const month = i + 1;
+                              return (
+                                <option key={month} value={month}>
+                                  {month}月
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      </div>
 
-                  {/* 3行目：説明 */}
-                  <div>
-                    <h3 className="font-medium text-gray-900">
-                      {expense.description}
-                    </h3>
-                  </div>
+                      {/* 編集フォーム：立替者 */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700 w-16">立替者:</label>
+                        <select
+                          value={editFormData.payerId || ''}
+                          onChange={(e) => handleEditFormChange('payerId', e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          disabled={isUpdatingExpense}
+                        >
+                          <option value="husband-001">夫</option>
+                          <option value="wife-001">妻</option>
+                        </select>
+                      </div>
 
-                  {/* 4行目：夫~~% */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-600">夫:</span>
-                    <span className="text-xs font-medium text-gray-900">
-                      {Math.round(currentRatio * 100)}%
-                    </span>
-                    {/* スピナー用の固定幅スペース（レイアウトシフト防止） */}
-                    <div className="w-3 h-3 flex items-center justify-center">
-                      {isUpdating && (
-                        <div className="w-3 h-3 border border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                      )}
+                      {/* 編集フォーム：説明 */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700 w-16">説明:</label>
+                        <input
+                          type="text"
+                          value={editFormData.description || ''}
+                          onChange={(e) => handleEditFormChange('description', e.target.value)}
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="費用の説明を入力"
+                          disabled={isUpdatingExpense}
+                        />
+                      </div>
+
+                      {/* 編集ボタン */}
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={isUpdatingExpense}
+                          className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          onClick={handleSaveEdit}
+                          disabled={isUpdatingExpense}
+                          className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+                        >
+                          {isUpdatingExpense && (
+                            <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                          )}
+                          保存
+                        </button>
+                      </div>
                     </div>
-                    {isApproved && (
-                      <span className="text-xs text-gray-500">（変更不可）</span>
-                    )}
-                  </div>
+                  ) : (
+                    // 通常表示モード
+                    <>
+                      {/* 1行目：金額 編集・削除ボタン */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-gray-900">
+                          ¥{formatAmount(expense.amount)}
+                        </span>
+                        <div className="flex gap-2">
+                          {!isApproved && (
+                            <button
+                              onClick={() => handleStartEdit(expense)}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              title="編集"
+                            >
+                              編集
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onDelete(expense.id)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            title="削除"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </div>
 
-                  {/* 5行目：スライダー リセット */}
-                  <div className="flex items-center gap-2 min-h-[24px]">
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={currentRatio}
-                      onChange={(e) => handleAllocationRatioChange(expense.id, parseFloat(e.target.value))}
-                      disabled={isUpdating || isApproved}
-                      className={`flex-1 h-2 bg-gray-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isApproved ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                      }`}
-                      style={{ touchAction: 'pan-y' }}
-                    />
-                    {/* リセットボタン用の固定スペース（レイアウトシフト防止） */}
-                    <div className="w-12 flex justify-end">
-                      <button
-                        onClick={() => handleResetAllocationRatio(expense.id)}
-                        disabled={isUpdating || isApproved}
-                        className={`text-xs whitespace-nowrap px-1 py-0 min-w-0 flex-shrink-0 ${
-                          hasCustomRatio && !isApproved
-                            ? 'text-blue-600 hover:text-blue-800 disabled:text-gray-400 visible' 
-                            : 'invisible'
-                        }`}
-                        title={isApproved ? "承認済みのため変更できません" : "デフォルトに戻す"}
-                      >
-                        リセット
-                      </button>
-                    </div>
-                  </div>
+                      {/* 2行目：年月 */}
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                          {formatMonthYear(expense.expenseYear, expense.expenseMonth)}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {getPayerName(expense.payerId)}
+                        </span>
+                        {isApproved && (
+                          <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                            承認済み
+                          </span>
+                        )}
+                      </div>
 
-                  {/* 6行目：yyyy/mm/dd 時刻 */}
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      {formatDate(expense.createdAt)}
-                    </p>
-                  </div>
+                      {/* 3行目：説明 */}
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {expense.description}
+                        </h3>
+                      </div>
+                    </>
+                  )}
+
+                  {/* 4行目以降は編集モードでは非表示、通常モードでのみ表示 */}
+                  {editingExpenseId !== expense.id && (
+                    <>
+                      {/* 4行目：夫~~% */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">夫:</span>
+                        <span className="text-xs font-medium text-gray-900">
+                          {Math.round(currentRatio * 100)}%
+                        </span>
+                        {/* スピナー用の固定幅スペース（レイアウトシフト防止） */}
+                        <div className="w-3 h-3 flex items-center justify-center">
+                          {isUpdating && (
+                            <div className="w-3 h-3 border border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                          )}
+                        </div>
+                        {isApproved && (
+                          <span className="text-xs text-gray-500">（変更不可）</span>
+                        )}
+                      </div>
+
+                      {/* 5行目：スライダー リセット */}
+                      <div className="flex items-center gap-2 min-h-[24px]">
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={currentRatio}
+                          onChange={(e) => handleAllocationRatioChange(expense.id, parseFloat(e.target.value))}
+                          disabled={isUpdating || isApproved}
+                          className={`flex-1 h-2 bg-gray-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isApproved ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                          }`}
+                          style={{ touchAction: 'pan-y' }}
+                        />
+                        {/* リセットボタン用の固定スペース（レイアウトシフト防止） */}
+                        <div className="w-12 flex justify-end">
+                          <button
+                            onClick={() => handleResetAllocationRatio(expense.id)}
+                            disabled={isUpdating || isApproved}
+                            className={`text-xs whitespace-nowrap px-1 py-0 min-w-0 flex-shrink-0 ${
+                              hasCustomRatio && !isApproved
+                                ? 'text-blue-600 hover:text-blue-800 disabled:text-gray-400 visible' 
+                                : 'invisible'
+                            }`}
+                            title={isApproved ? "承認済みのため変更できません" : "デフォルトに戻す"}
+                          >
+                            リセット
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 6行目：yyyy/mm/dd 時刻 */}
+                      <div>
+                        <p className="text-sm text-gray-500">
+                          {formatDate(expense.createdAt)}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

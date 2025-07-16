@@ -369,8 +369,18 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
       }
     };
 
+    const handleSettlementUpdate = () => {
+      // 支出編集等により精算が更新された場合、精算一覧を再読み込み
+      loadSettlements();
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('settlementUpdated', handleSettlementUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('settlementUpdated', handleSettlementUpdate);
+    };
   }, []);
 
   // 全体の配分比率を取得

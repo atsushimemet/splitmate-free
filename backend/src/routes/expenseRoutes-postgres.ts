@@ -109,6 +109,56 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// 費用を更新
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { description, amount, payerId, expenseYear, expenseMonth } = req.body;
+    
+    if (!id) {
+      res.status(400).json({ success: false, error: 'Expense ID is required' });
+      return;
+    }
+    
+    // 少なくとも1つのフィールドが更新されることを確認
+    if (!description && !amount && !payerId && !expenseYear && !expenseMonth) {
+      res.status(400).json({ success: false, error: 'At least one field must be provided for update' });
+      return;
+    }
+    
+    // バリデーション
+    if (amount !== undefined && (typeof amount !== 'number' || amount <= 0)) {
+      res.status(400).json({ success: false, error: 'Amount must be a positive number' });
+      return;
+    }
+    
+    if (description !== undefined && (typeof description !== 'string' || description.trim().length === 0)) {
+      res.status(400).json({ success: false, error: 'Description must be a non-empty string' });
+      return;
+    }
+    
+    if (payerId !== undefined && (typeof payerId !== 'string' || payerId.trim().length === 0)) {
+      res.status(400).json({ success: false, error: 'Payer ID must be a non-empty string' });
+      return;
+    }
+    
+    if (expenseYear !== undefined && (typeof expenseYear !== 'number' || expenseYear < 2020 || expenseYear > 2099)) {
+      res.status(400).json({ success: false, error: 'Expense year must be between 2020 and 2099' });
+      return;
+    }
+    
+    if (expenseMonth !== undefined && (typeof expenseMonth !== 'number' || expenseMonth < 1 || expenseMonth > 12)) {
+      res.status(400).json({ success: false, error: 'Expense month must be between 1 and 12' });
+      return;
+    }
+    
+    const result = await ExpenseService.updateExpense(id, req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // 費用の個別配分比率を更新
 router.put('/:id/allocation-ratio', async (req, res) => {
   try {
