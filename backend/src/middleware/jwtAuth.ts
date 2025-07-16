@@ -56,6 +56,7 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
     };
     
     return next();
+
   } catch (error) {
     console.error('JWT verification failed:', error);
     return res.status(401).json({ 
