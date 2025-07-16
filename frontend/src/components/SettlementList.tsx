@@ -60,6 +60,57 @@ function ContactConfirmModal({ isOpen, onClose, onConfirm }: ContactConfirmModal
   );
 }
 
+interface MonthlyApprovalModalProps {
+  isOpen: boolean;
+  year: number;
+  month: number;
+  pendingCount: number;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+function MonthlyApprovalModal({ isOpen, year, month, pendingCount, onClose, onConfirm }: MonthlyApprovalModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">当月精算の実施確認</h2>
+        </div>
+        
+        <div className="p-6">
+          <div className="mb-6">
+            <p className="text-gray-700 mb-2">
+              <strong>{year}年{month}月</strong>の未承認精算 <strong className="text-blue-600">{pendingCount}件</strong> を一括承認します。
+            </p>
+            <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+              <p className="text-sm text-orange-800">
+                ⚠️ 承認後は個別の取り消しができませんのでご注意ください。
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 transition-colors"
+            >
+              当月精算を実施
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VerificationModal({ settlement, isOpen, onClose }: VerificationModalProps) {
   if (!isOpen) return null;
 
@@ -339,6 +390,23 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
   const [error, setError] = useState<string | null>(null);
   const [showFinalSettlement, setShowFinalSettlement] = useState(false);
   const [defaultAllocationRatio, setDefaultAllocationRatio] = useState<AllocationRatio | null>(null);
+  
+  // 月次選択の状態（デフォルトは前月）
+  const getPreviousMonth = () => {
+    const today = new Date();
+    const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    return {
+      year: prevMonth.getFullYear(),
+      month: prevMonth.getMonth() + 1
+    };
+  };
+  
+  const { year: defaultYear, month: defaultMonth } = getPreviousMonth();
+  const [selectedYear, setSelectedYear] = useState(defaultYear);
+  const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
+  
+
+  
   const [verificationModal, setVerificationModal] = useState<{ isOpen: boolean; settlement: Settlement | null }>({
     isOpen: false,
     settlement: null
@@ -358,6 +426,11 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
     loadSettlements();
     loadDefaultAllocationRatio();
   }, []);
+
+  // 月次選択が変更された時の再読み込み
+  useEffect(() => {
+    loadSettlements();
+  }, [selectedYear, selectedMonth]);
 
   // 外部からの更新通知を受け取る
   useEffect(() => {
@@ -400,7 +473,8 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
     setError(null);
 
     try {
-      const response = await settlementApi.getAllSettlements();
+      const response = await settlementApi.getMonthlySettlements(selectedYear, selectedMonth);
+      
       if (response.success && response.data) {
         setSettlements(response.data);
       } else {
@@ -428,6 +502,8 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
       setError('精算の承認に失敗しました');
     }
   };
+
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -596,6 +672,7 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
           onClose={handleContactCancel}
           onConfirm={handleContactConfirm}
         />
+
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
@@ -739,14 +816,45 @@ export function SettlementList({ onSettlementUpdate }: SettlementListProps) {
             <h2 className="text-lg font-semibold text-gray-900">精算一覧</h2>
             <p className="text-sm text-gray-600">費用の精算状況を確認できます</p>
           </div>
-          {getApprovedSettlements().length > 0 && (
-            <button
-              onClick={handleFinalSettlement}
-              className="btn-primary text-sm px-4 py-2"
+          <div className="flex items-center space-x-3">
+            {getApprovedSettlements().length > 0 && (
+              <button
+                onClick={handleFinalSettlement}
+                className="btn-primary text-sm px-4 py-2"
+              >
+                確定
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* 年月選択 */}
+        <div className="mt-4 flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">年:</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              確定
-            </button>
-          )}
+              {Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                <option key={year} value={year}>{year}年</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">月:</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                <option key={month} value={month}>{month}月</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

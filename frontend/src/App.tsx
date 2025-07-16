@@ -394,8 +394,8 @@ const AppContent = () => {
           <div className="space-y-6">
             {/* 年月選択 */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">月次費用一覧</h2>
-              <div className="flex items-center gap-4">
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">月次表示</h2>
+              <div className="space-y-4">
                 <div>
                   <label htmlFor="year-select" className="block text-sm font-medium text-gray-700 mb-2">
                     年

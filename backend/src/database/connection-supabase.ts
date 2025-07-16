@@ -12,8 +12,10 @@ const dbConfig: PoolConfig = {
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-  // Supabaseは常にSSLが必要
-  ssl: { rejectUnauthorized: false },
+  // SSL設定: 本番環境（Supabase）ではSSL必須、開発環境（ローカルPG）では無効
+  ssl: process.env.NODE_ENV === 'production' || process.env.DATABASE_URL?.includes('supabase') 
+    ? { rejectUnauthorized: false } 
+    : false,
 };
 
 // Create connection pool
