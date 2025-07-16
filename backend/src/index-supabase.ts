@@ -154,7 +154,9 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    service: 'SplitMate Backend API (Supabase + JWT)'
+    service: 'SplitMate Backend API (Supabase + JWT)',
+    environment: NODE_ENV,
+    port: PORT
   });
 });
 
@@ -185,9 +187,14 @@ async function startServer() {
   try {
     console.log('🚀 Starting SplitMate Backend Server (Supabase + JWT)...');
     
-    // データベース接続テスト
-    await initializeDatabase();
-    console.log('✅ Database connection established');
+    // データベース接続テスト（エラーが発生してもサーバーは起動する）
+    try {
+      await initializeDatabase();
+      console.log('✅ Database connection established');
+    } catch (dbError) {
+      console.warn('⚠️ Database connection failed, but server will continue:', dbError);
+      console.log('⚠️ Some features may not work without database connection');
+    }
     
     // サーバー起動
     app.listen(PORT, () => {
@@ -196,6 +203,7 @@ async function startServer() {
       console.log(`🎨 Frontend URL: ${frontendUrl}`);
       console.log(`🔗 Backend URL: ${backendUrl}`);
       console.log(`🔐 JWT Authentication: Enabled`);
+      console.log(`🏥 Health check available at: http://localhost:${PORT}/health`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
