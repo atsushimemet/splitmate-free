@@ -122,6 +122,39 @@ export class SettlementController {
   }
 
   /**
+   * 指定した年月の精算を取得
+   */
+  static async getMonthlySettlements(req: Request, res: Response) {
+    try {
+      const year = parseInt(req.params.year);
+      const month = parseInt(req.params.month);
+      
+      if (isNaN(year) || isNaN(month)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid year or month'
+        });
+      }
+      
+      const result = await settlementService.getMonthlySettlements(year, month);
+      
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+      return;
+    } catch (error) {
+      console.error('Error fetching monthly settlements:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+      return;
+    }
+  }
+
+  /**
    * 精算を削除
    */
   static async deleteSettlement(req: Request, res: Response) {

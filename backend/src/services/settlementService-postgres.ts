@@ -165,6 +165,51 @@ export const settlementService = {
     }
   },
 
+  // 指定した年月の精算を取得
+  getMonthlySettlements: async (year: number, month: number): Promise<ApiResponse<Settlement[]>> => {
+    try {
+      const query = `
+        SELECT s.*, e.description as expense_description, e.amount as expense_amount,
+               e.custom_husband_ratio, e.custom_wife_ratio, e.uses_custom_ratio
+        FROM settlements s
+        JOIN expenses e ON s.expense_id = e.id
+        WHERE e.expense_year = $1 AND e.expense_month = $2
+        ORDER BY s.created_at DESC
+      `;
+      
+      const result = await pool.query(query, [year, month]);
+      
+      const settlements: Settlement[] = result.rows.map((row: any) => ({
+        id: row.id,
+        expenseId: row.expense_id,
+        husbandAmount: row.husband_amount,
+        wifeAmount: row.wife_amount,
+        payer: row.payer,
+        receiver: row.receiver,
+        settlementAmount: row.settlement_amount,
+        status: row.status,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+        usesCustomRatio: row.uses_custom_ratio || false,
+        customHusbandRatio: row.custom_husband_ratio,
+        customWifeRatio: row.custom_wife_ratio,
+        expenseDescription: row.expense_description,
+        expenseAmount: row.expense_amount
+      }));
+      
+      return {
+        success: true,
+        data: settlements
+      };
+    } catch (error) {
+      console.error('Error getting monthly settlements:', error);
+      return {
+        success: false,
+        error: '月次精算の取得に失敗しました'
+      };
+    }
+  },
+
   // 精算を承認
   approveSettlement: async (settlementId: string): Promise<ApiResponse<Settlement>> => {
     try {

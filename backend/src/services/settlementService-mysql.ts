@@ -313,6 +313,55 @@ export const settlementService = {
     }
   },
 
+  // 指定した年月の精算を取得
+  getMonthlySettlements: async (year: number, month: number): Promise<ApiResponse<Settlement[]>> => {
+    try {
+      const query = `
+        SELECT s.id, s.expense_id as expenseId, s.husband_amount as husbandAmount,
+               s.wife_amount as wifeAmount, s.payer, s.receiver, s.settlement_amount as settlementAmount,
+               s.status, s.created_at as createdAt, s.updated_at as updatedAt,
+               e.description as expenseDescription, e.amount as expenseAmount,
+               e.custom_husband_ratio as customHusbandRatio, e.custom_wife_ratio as customWifeRatio,
+               e.uses_custom_ratio as usesCustomRatio
+        FROM settlements s
+        JOIN expenses e ON s.expense_id = e.id
+        WHERE e.expense_year = ? AND e.expense_month = ?
+        ORDER BY s.created_at DESC
+      `;
+      
+      const [rows] = await pool.execute(query, [year, month]);
+      
+      const settlements: Settlement[] = (rows as any[]).map((row: any) => ({
+        id: row.id,
+        expenseId: row.expenseId,
+        husbandAmount: row.husbandAmount,
+        wifeAmount: row.wifeAmount,
+        payer: row.payer,
+        receiver: row.receiver,
+        settlementAmount: row.settlementAmount,
+        status: row.status,
+        createdAt: new Date(row.createdAt),
+        updatedAt: new Date(row.updatedAt),
+        expenseDescription: row.expenseDescription,
+        expenseAmount: row.expenseAmount,
+        customHusbandRatio: row.customHusbandRatio,
+        customWifeRatio: row.customWifeRatio,
+        usesCustomRatio: row.usesCustomRatio || false
+      }));
+      
+      return {
+        success: true,
+        data: settlements
+      };
+    } catch (error) {
+      console.error('Error getting monthly settlements:', error);
+      return {
+        success: false,
+        error: '月次精算の取得に失敗しました'
+      };
+    }
+  },
+
   // 精算を削除
   deleteSettlement: async (settlementId: string): Promise<ApiResponse<void>> => {
     try {
