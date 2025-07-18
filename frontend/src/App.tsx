@@ -3,6 +3,7 @@ import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-d
 import { AllocationRatioForm } from './components/AllocationRatioForm';
 import { AnonymousCoupleForm } from './components/AnonymousCoupleForm';
 import { AuthCallback } from './components/AuthCallback';
+import { CoupleInfoPage } from './components/CoupleInfoPage';
 import ExpenseForm from './components/ExpenseForm';
 import { ExpenseList } from './components/ExpenseList';
 import { ExpenseStats } from './components/ExpenseStats';
@@ -76,7 +77,7 @@ const AppContent = () => {
   const hasRoleData = roleDataStr !== null;
   
   // デバッグログ（条件付きで実行）
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     console.log('🔍 App.tsx - isAuthenticated:', isAuthenticated);
     console.log('🔍 App.tsx - hasCouple:', hasCouple);
     console.log('🔍 App.tsx - hasUser:', hasUser);
@@ -512,6 +513,10 @@ const AppContent = () => {
         element={<AuthCallback />}
       />
       <Route
+        path="/couple/:coupleId"
+        element={<CoupleInfoPage />}
+      />
+      <Route
         path="/"
         element={
           isAuthenticated && hasCouple && hasUser ? (
@@ -530,7 +535,7 @@ const AppContent = () => {
                     <div className="inline-flex items-center">
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       <span className="text-blue-600">ユーザー登録中...</span>
                     </div>

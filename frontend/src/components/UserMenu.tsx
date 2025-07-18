@@ -33,6 +33,14 @@ export const UserMenu: React.FC = () => {
           <div className="px-4 py-2 text-sm text-gray-700 border-b">
             {user.email}
           </div>
+          {user.coupleId && (
+            <a
+              href={`/couple/${user.coupleId}`}
+              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              カップル情報
+            </a>
+          )}
           <button
             onClick={logout}
             className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
