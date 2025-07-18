@@ -11,6 +11,25 @@ export class UserService {
   async createUser(userData: CreateUserRequest): Promise<ApiResponse<User>> {
     try {
       const { name, role, coupleId } = userData;
+      
+      // Check if a user with the same role already exists for this couple
+      const existingUserQuery = `
+        SELECT id, name, role
+        FROM users
+        WHERE couple_id = $1 AND role = $2
+        LIMIT 1
+      `;
+      
+      const existingResult = await this.pool.query(existingUserQuery, [coupleId, role]);
+      
+      if (existingResult.rows.length > 0) {
+        const existingUser = existingResult.rows[0];
+        return {
+          success: false,
+          error: `このカップルには既に${role === 'husband' ? '夫' : '妻'}のユーザー「${existingUser.name}」が登録されています`
+        };
+      }
+
       const id = `${role}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       const query = `
@@ -28,6 +47,15 @@ export class UserService {
       };
     } catch (error) {
       console.error('Error creating user:', error);
+      
+      // Handle unique constraint violation
+      if (error.code === '23505' && error.constraint === 'unique_couple_role') {
+        return {
+          success: false,
+          error: `このカップルには既に${userData.role === 'husband' ? '夫' : '妻'}のユーザーが登録されています`
+        };
+      }
+      
       return {
         success: false,
         error: 'Failed to create user'
