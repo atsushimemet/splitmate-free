@@ -53,9 +53,21 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
       
       setUsersLoading(true);
       try {
+        console.log('🔍 ExpenseForm: Fetching users for coupleId:', user.coupleId);
         const response = await userApi.getUsersByCouple(user.coupleId);
+        console.log('🔍 ExpenseForm: API response:', response);
         if (response.success && response.data) {
-          setCoupleUsers(response.data);
+          console.log('🔍 ExpenseForm: Setting couple users:', response.data);
+          console.log('🔍 ExpenseForm: Number of users received:', response.data.length);
+          
+          // 重複を除去し、夫と妻のみを保持
+          const uniqueUsers = response.data.filter((user, index, array) => {
+            // 同じroleで最初に見つかったもののみを保持
+            return index === array.findIndex(u => u.role === user.role);
+          });
+          
+          console.log('🔍 ExpenseForm: Filtered unique users:', uniqueUsers);
+          setCoupleUsers(uniqueUsers);
         }
       } catch (error) {
         console.error('Failed to fetch couple users:', error);
@@ -89,7 +101,7 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
     return {
       description: '',
       amount: 0,
-      payerId: coupleUsers.length > 0 ? coupleUsers[0].id : '',
+      payerId: coupleUsers.find(u => u.role === 'husband')?.id || 'husband',
       expenseYear: currentYear,
       expenseMonth: currentMonth,
       coupleId: user?.coupleId || ''
@@ -97,6 +109,17 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
   };
 
   const [formData, setFormData] = useState<CreateExpenseRequest>(getStoredFormData);
+
+  // coupleUsersが更新された時にpayerIdを適切に設定
+  useEffect(() => {
+    if (coupleUsers.length > 0 && (!formData.payerId || (formData.payerId !== 'husband' && formData.payerId !== 'wife' && !coupleUsers.find(u => u.id === formData.payerId)))) {
+      const husbandUser = coupleUsers.find(u => u.role === 'husband');
+      setFormData(prev => ({
+        ...prev,
+        payerId: husbandUser?.id || 'husband'
+      }));
+    }
+  }, [coupleUsers, formData.payerId]);
 
   // ユーザー一覧が更新されたらpayerIdを初期化
   useEffect(() => {
@@ -254,38 +277,43 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
           <label className="block text-sm font-medium text-gray-700 mb-2">
             立替者 *
           </label>
-          {usersLoading ? (
-            <div className="flex items-center justify-center p-4 text-gray-500">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-              ユーザーを読み込み中...
-            </div>
-          ) : coupleUsers.length === 0 ? (
-            <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
-              カップルのユーザーが見つかりません。
-            </div>
-          ) : (
-            <div className={`grid gap-2 ${coupleUsers.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              {coupleUsers.map(user => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => handleInputChange('payerId', user.id)}
-                  className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                    formData.payerId === user.id
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="text-center">
-                    <div className="text-lg font-medium">{user.name}</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {user.role === 'husband' ? '夫' : '妻'}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                // 夫のユーザーIDを取得（存在しない場合は'husband'をセット）
+                const husbandUser = coupleUsers.find(u => u.role === 'husband');
+                handleInputChange('payerId', husbandUser?.id || 'husband');
+              }}
+              className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                formData.payerId === coupleUsers.find(u => u.role === 'husband')?.id || formData.payerId === 'husband'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-lg font-medium">夫</div>
+              </div>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                // 妻のユーザーIDを取得（存在しない場合は'wife'をセット）
+                const wifeUser = coupleUsers.find(u => u.role === 'wife');
+                handleInputChange('payerId', wifeUser?.id || 'wife');
+              }}
+              className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                formData.payerId === coupleUsers.find(u => u.role === 'wife')?.id || formData.payerId === 'wife'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-lg font-medium">妻</div>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* 送信ボタン */}
