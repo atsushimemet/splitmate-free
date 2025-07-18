@@ -23,11 +23,11 @@ export class ExpenseService {
       
       const sql = `
         INSERT INTO expenses (
-          id, description, amount, payer_id, expense_year, expense_month, 
+          id, description, amount, payer_id, couple_id, expense_year, expense_month, 
           custom_husband_ratio, custom_wife_ratio, uses_custom_ratio, 
           created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `;
       
@@ -36,6 +36,7 @@ export class ExpenseService {
         data.description, 
         data.amount, 
         data.payerId, 
+        data.coupleId,
         expenseYear,
         expenseMonth,
         customHusbandRatio,
@@ -63,6 +64,7 @@ export class ExpenseService {
             description: expense.description,
             amount: expense.amount,
             payerId: expense.payer_id,
+            coupleId: expense.couple_id,
             expenseYear: expense.expense_year,
             expenseMonth: expense.expense_month,
             customHusbandRatio: expense.custom_husband_ratio,
@@ -106,6 +108,7 @@ export class ExpenseService {
         description: row.description,
         amount: row.amount,
         payerId: row.payer_id,
+        coupleId: row.couple_id,
         expenseYear: row.expense_year,
         expenseMonth: row.expense_month,
         customHusbandRatio: row.custom_husband_ratio,
@@ -147,6 +150,7 @@ export class ExpenseService {
         description: row.description,
         amount: row.amount,
         payerId: row.payer_id,
+        coupleId: row.couple_id,
         expenseYear: row.expense_year,
         expenseMonth: row.expense_month,
         customHusbandRatio: row.custom_husband_ratio,
@@ -378,6 +382,7 @@ export class ExpenseService {
             description: expense.description,
             amount: expense.amount,
             payerId: expense.payer_id,
+            coupleId: expense.couple_id,
             expenseYear: expense.expense_year,
             expenseMonth: expense.expense_month,
             customHusbandRatio: expense.custom_husband_ratio,
@@ -481,6 +486,7 @@ export class ExpenseService {
             description: expense.description,
             amount: expense.amount,
             payerId: expense.payer_id,
+            coupleId: expense.couple_id,
             expenseYear: expense.expense_year,
             expenseMonth: expense.expense_month,
             customHusbandRatio: expense.custom_husband_ratio,

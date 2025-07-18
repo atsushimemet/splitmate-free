@@ -6,6 +6,8 @@ export interface JWTUser {
   displayName: string;
   email: string;
   picture?: string;
+  coupleId?: string;
+  registeredUserId?: string;
 }
 
 // Express型拡張は types/express.d.ts に移行
@@ -15,6 +17,8 @@ export interface JWTPayload {
   displayName: string;
   email: string;
   picture?: string;
+  coupleId?: string;
+  registeredUserId?: string;
   iat: number;
   exp: number;
 }
@@ -46,7 +50,9 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
       id: decoded.id,
       displayName: decoded.displayName,
       email: decoded.email,
-      picture: decoded.picture
+      picture: decoded.picture,
+      coupleId: decoded.coupleId,
+      registeredUserId: decoded.registeredUserId
     };
     
     return next();

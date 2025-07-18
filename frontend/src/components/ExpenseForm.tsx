@@ -1,5 +1,7 @@
-import React, { forwardRef, memo, useImperativeHandle, useState } from 'react';
-import { CreateExpenseRequest } from '../types';
+import React, { forwardRef, memo, useEffect, useImperativeHandle, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { userApi } from '../services/api';
+import { CreateExpenseRequest, User } from '../types';
 
 interface ExpenseFormProps {
   onSubmit: (data: CreateExpenseRequest) => void;
@@ -10,13 +12,6 @@ export interface ExpenseFormHandle {
   resetAmountOnly: () => void;
   resetAll: () => void;
 }
-
-
-
-const DEFAULT_USERS = [
-  { id: 'husband-001', name: '夫', role: 'husband' as const },
-  { id: 'wife-001', name: '妻', role: 'wife' as const }
-];
 
 // 年月の選択肢を生成
 const generateYearOptions = () => {
@@ -44,9 +39,45 @@ const MONTH_OPTIONS = [
 ];
 
 const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit, isLoading = false }, ref) => {
+  const { user } = useAuth();
+  const [coupleUsers, setCoupleUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
+
+  // カップルのユーザー一覧を取得
+  useEffect(() => {
+    const fetchCoupleUsers = async () => {
+      if (!user?.coupleId) return;
+      
+      setUsersLoading(true);
+      try {
+        console.log('🔍 ExpenseForm: Fetching users for coupleId:', user.coupleId);
+        const response = await userApi.getUsersByCouple(user.coupleId);
+        console.log('🔍 ExpenseForm: API response:', response);
+        if (response.success && response.data) {
+          console.log('🔍 ExpenseForm: Setting couple users:', response.data);
+          console.log('🔍 ExpenseForm: Number of users received:', response.data.length);
+          
+          // 重複を除去し、夫と妻のみを保持
+          const uniqueUsers = response.data.filter((user, index, array) => {
+            // 同じroleで最初に見つかったもののみを保持
+            return index === array.findIndex(u => u.role === user.role);
+          });
+          
+          console.log('🔍 ExpenseForm: Filtered unique users:', uniqueUsers);
+          setCoupleUsers(uniqueUsers);
+        }
+      } catch (error) {
+        console.error('Failed to fetch couple users:', error);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+
+    fetchCoupleUsers();
+  }, [user?.coupleId]);
 
   // LocalStorageから保存された値を取得（Issue #14対応）
   const getStoredFormData = (): CreateExpenseRequest => {
@@ -57,26 +88,48 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
         return {
           description: parsedData.description || '',
           amount: 0, // 金額は常に0からスタート
-          payerId: parsedData.payerId || 'husband-001',
+          payerId: parsedData.payerId || (coupleUsers.length > 0 ? coupleUsers[0].id : ''),
           expenseYear: parsedData.expenseYear || currentYear,
-          expenseMonth: parsedData.expenseMonth || currentMonth
+          expenseMonth: parsedData.expenseMonth || currentMonth,
+          coupleId: user?.coupleId || ''
         };
       }
     } catch (error) {
       console.warn('Failed to load stored form data:', error);
     }
-    
     // デフォルト値
     return {
       description: '',
       amount: 0,
-      payerId: 'husband-001',
+      payerId: coupleUsers.find(u => u.role === 'husband')?.id || coupleUsers[0]?.id || '',
       expenseYear: currentYear,
-      expenseMonth: currentMonth
+      expenseMonth: currentMonth,
+      coupleId: user?.coupleId || ''
     };
   };
 
   const [formData, setFormData] = useState<CreateExpenseRequest>(getStoredFormData);
+
+  // coupleUsersが更新された時にpayerIdを適切に設定
+  useEffect(() => {
+    if (coupleUsers.length > 0 && (!formData.payerId || !coupleUsers.find(u => u.id === formData.payerId))) {
+      const husbandUser = coupleUsers.find(u => u.role === 'husband');
+      const fallbackUser = husbandUser || coupleUsers[0];
+      if (fallbackUser) {
+        setFormData(prev => ({
+          ...prev,
+          payerId: fallbackUser.id
+        }));
+      }
+    }
+  }, [coupleUsers, formData.payerId]);
+
+  // ユーザー一覧が更新されたらpayerIdを初期化
+  useEffect(() => {
+    if (coupleUsers.length > 0 && !formData.payerId) {
+      setFormData(prev => ({ ...prev, payerId: coupleUsers[0].id }));
+    }
+  }, [coupleUsers, formData.payerId]);
 
   // フォームデータの変更時にLocalStorageに保存（金額以外）
   const saveFormDataToStorage = (data: CreateExpenseRequest) => {
@@ -97,7 +150,7 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
   // 外部から呼び出せるメソッドを公開
   useImperativeHandle(ref, () => ({
     resetAmountOnly: () => {
-      const newData = { ...formData, amount: 0 };
+      const newData = { ...formData, amount: 0, coupleId: user?.coupleId || '' };
       setFormData(newData);
       saveFormDataToStorage(newData);
     },
@@ -105,19 +158,32 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
       const clearedData = {
         description: '',
         amount: 0,
-        payerId: 'husband-001',
+        payerId: coupleUsers.length > 0 ? coupleUsers[0].id : '',
         expenseYear: currentYear,
-        expenseMonth: currentMonth
+        expenseMonth: currentMonth,
+        coupleId: user?.coupleId || ''
       };
       setFormData(clearedData);
       localStorage.removeItem('splitmate-expense-form');
     }
-  }), [formData, currentYear, currentMonth]);
+  }), [formData, currentYear, currentMonth, user, coupleUsers]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.description && formData.amount > 0) {
-      onSubmit(formData);
+      if (!user?.coupleId) {
+        alert('カップルIDが取得できません。再ログインしてください。');
+        return;
+      }
+      
+      // 有効なpayerIdが選択されているかチェック
+      const validPayerId = coupleUsers.find(u => u.id === formData.payerId);
+      if (!validPayerId) {
+        alert('立替者を選択してください。未登録のユーザーは選択できません。');
+        return;
+      }
+      
+      onSubmit({ ...formData, coupleId: user.coupleId });
       
       // Issue #14: 金額のみリセット、他のフィールドは保持
       const newData = { ...formData, amount: 0 };
@@ -223,20 +289,51 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
             立替者 *
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {DEFAULT_USERS.map(user => (
-              <button
-                key={user.id}
-                type="button"
-                onClick={() => handleInputChange('payerId', user.id)}
-                className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                  formData.payerId === user.id
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                {user.name}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => {
+                // 夫のユーザーIDを取得
+                const husbandUser = coupleUsers.find(u => u.role === 'husband');
+                if (husbandUser) {
+                  handleInputChange('payerId', husbandUser.id);
+                }
+              }}
+              disabled={!coupleUsers.find(u => u.role === 'husband')}
+              className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                !coupleUsers.find(u => u.role === 'husband')
+                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : formData.payerId === coupleUsers.find(u => u.role === 'husband')?.id
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-lg font-medium">夫</div>
+              </div>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                // 妻のユーザーIDを取得
+                const wifeUser = coupleUsers.find(u => u.role === 'wife');
+                if (wifeUser) {
+                  handleInputChange('payerId', wifeUser.id);
+                }
+              }}
+              disabled={!coupleUsers.find(u => u.role === 'wife')}
+              className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                !coupleUsers.find(u => u.role === 'wife')
+                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : formData.payerId === coupleUsers.find(u => u.role === 'wife')?.id
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-lg font-medium">妻</div>
+              </div>
+            </button>
           </div>
         </div>
 

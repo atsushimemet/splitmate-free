@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { AllocationRatioForm } from './components/AllocationRatioForm';
+import { AnonymousCoupleForm } from './components/AnonymousCoupleForm';
 import { AuthCallback } from './components/AuthCallback';
+import { CoupleInfoPage } from './components/CoupleInfoPage';
 import ExpenseForm from './components/ExpenseForm';
 import { ExpenseList } from './components/ExpenseList';
 import { ExpenseStats } from './components/ExpenseStats';
-import { GoogleLoginButton } from './components/GoogleLoginButton';
+import { RoleSelectionForm } from './components/RoleSelectionForm';
 import { SettlementList } from './components/SettlementList';
 import { UserMenu } from './components/UserMenu';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -14,7 +16,7 @@ import { AllocationRatio, CreateExpenseRequest, Expense, ExpenseStats as Stats }
 
 // メインコンテンツをラップするコンポーネント
 const AppContent = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, hasCouple, hasUser, updateUserStatus } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([]);
   const [stats, setStats] = useState<Stats>({
@@ -30,20 +32,63 @@ const AppContent = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 匿名カップル作成用の状態
+  const [anonymousCoupleData, setAnonymousCoupleData] = useState<{
+    coupleId: string;
+    coupleName: string;
+    role?: 'husband' | 'wife';
+  } | null>(null);
+
   // 初期データの読み込み
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && hasCouple && hasUser) {
       loadData();
       loadMonthlyData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, hasCouple, hasUser]);
 
   // 選択された年月が変更された時に月次データを再読み込み
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'monthly') {
+    if (isAuthenticated && hasCouple && hasUser && activeTab === 'monthly') {
       loadMonthlyData();
     }
-  }, [selectedYear, selectedMonth, isAuthenticated, activeTab]);
+  }, [selectedYear, selectedMonth, isAuthenticated, hasCouple, hasUser, activeTab]);
+
+  const handleAnonymousCoupleSuccess = (coupleId: string, coupleName: string) => {
+    console.log('Anonymous couple created:', { coupleId, coupleName });
+    setAnonymousCoupleData({ coupleId, coupleName });
+  };
+
+  const handleRoleSelected = (role: 'husband' | 'wife') => {
+    console.log('🔍 App.tsx: 役割が選択されました:', role);
+    if (anonymousCoupleData) {
+      setAnonymousCoupleData({
+        ...anonymousCoupleData,
+        role
+      });
+      console.log('🔍 App.tsx: anonymousCoupleDataに役割を追加しました:', { ...anonymousCoupleData, role });
+    }
+  };
+
+  // 注意: ユーザー作成処理は AuthCallback.tsx で実行されるため、ここでは実行しない
+
+  // LocalStorageから役割データをチェック
+  const roleDataStr = localStorage.getItem('splitmate_role_data');
+  const hasRoleData = roleDataStr !== null;
+  
+  // デバッグログ（条件付きで実行）
+  if (import.meta.env.DEV) {
+    console.log('🔍 App.tsx - isAuthenticated:', isAuthenticated);
+    console.log('🔍 App.tsx - hasCouple:', hasCouple);
+    console.log('🔍 App.tsx - hasUser:', hasUser);
+    console.log('🔍 App.tsx - roleDataStr:', roleDataStr);
+    console.log('🔍 App.tsx - hasRoleData:', hasRoleData);
+    console.log('🔍 App.tsx - anonymousCoupleData:', anonymousCoupleData);
+    console.log('🔍 App.tsx - ルーティング判定:');
+    console.log('  - isAuthenticated && hasCouple && hasUser:', isAuthenticated && hasCouple && hasUser);
+    console.log('  - isAuthenticated && hasRoleData:', isAuthenticated && hasRoleData);
+    console.log('  - anonymousCoupleData exists:', !!anonymousCoupleData);
+  }
 
   const loadData = async () => {
     setIsLoading(true);
@@ -468,15 +513,89 @@ const AppContent = () => {
         element={<AuthCallback />}
       />
       <Route
+        path="/couple/:coupleId"
+        element={<CoupleInfoPage />}
+      />
+      <Route
         path="/"
         element={
-          isAuthenticated ? (
+          isAuthenticated && hasCouple && hasUser ? (
+            // 完全に登録済み → メイン画面
             <MainContent />
-          ) : (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-              <h1 className="text-3xl font-bold text-gray-900 mb-8">SplitMate</h1>
-              <GoogleLoginButton />
+          ) : isAuthenticated && hasRoleData ? (
+            // 認証済み + 役割データあり → 処理中表示（AuthCallbackが処理中）
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+              <div className="max-w-md w-full space-y-8">
+                <div className="text-center">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">SplitMate</h1>
+                  <p className="text-gray-600">登録処理中...</p>
+                </div>
+                <div className="bg-white rounded-lg shadow-md p-8">
+                  <div className="text-center">
+                    <div className="inline-flex items-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span className="text-blue-600">ユーザー登録中...</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-4">
+                      しばらくお待ちください
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
+          ) : isAuthenticated && (!hasCouple || !hasUser) ? (
+            // 認証済みだが、カップル未作成またはユーザー未作成の中間状態
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+              <div className="max-w-md w-full space-y-8">
+                <div className="text-center">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">SplitMate</h1>
+                  <p className="text-gray-600">セットアップが必要です</p>
+                </div>
+                <div className="bg-white rounded-lg shadow-md p-8">
+                  <div className="text-center space-y-4">
+                    <div className="inline-flex items-center text-orange-600">
+                      <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                      </svg>
+                      セットアップが完了していません
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Google認証は完了していますが、<br/>
+                      カップル情報とユーザー登録が必要です。
+                    </p>
+                    <div className="mt-6">
+                      <button
+                        onClick={() => {
+                          console.log('🔄 やり直しボタンクリック - ログアウト処理を開始');
+                          // LocalStorageをクリア
+                          localStorage.clear();
+                          // JWTトークンを削除してログアウト
+                          window.location.href = '/';
+                        }}
+                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        最初からやり直す
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : anonymousCoupleData ? (
+            // カップル作成済み → 役割選択
+            <RoleSelectionForm 
+              coupleId={anonymousCoupleData.coupleId}
+              coupleName={anonymousCoupleData.coupleName}
+              onRoleSelected={handleRoleSelected}
+            />
+          ) : (
+            // 初回アクセス → 匿名カップル作成
+            <AnonymousCoupleForm 
+              onSuccess={handleAnonymousCoupleSuccess}
+            />
           )
         }
       />

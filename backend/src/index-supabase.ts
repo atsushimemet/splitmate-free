@@ -4,11 +4,16 @@ import express from 'express';
 import helmet from 'helmet';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { pool } from './database/connection-postgres';
 import { initializeDatabase } from './database/connection-supabase';
 import { authenticateJWT, generateJWT, JWTUser } from './middleware/jwtAuth';
 import allocationRatioRoutes from './routes/allocationRatioRoutes-postgres';
+import { createCoupleRoutes } from './routes/coupleRoutes-postgres';
 import expenseRoutes from './routes/expenseRoutes-postgres';
 import settlementRoutes from './routes/settlementRoutes-postgres';
+import { createUserRoutes } from './routes/userRoutes-postgres';
+import { CoupleService } from './services/coupleService-postgres';
+import { UserService } from './services/userService-postgres';
 
 // 環境変数の読み込み
 dotenv.config();
@@ -69,17 +74,31 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     callbackURL: `${backendUrl}/auth/google/callback`,
   },
   (accessToken, refreshToken, profile, done) => {
-    console.log('OAuth callback received for user:', profile.displayName);
-    console.log('Access token available:', !!accessToken);
+    console.log('🔍 OAuth callback received for user:', profile.displayName);
+    console.log('🔍 Full profile data:', JSON.stringify(profile, null, 2));
+    console.log('🔍 Profile displayName:', profile.displayName);
+    console.log('🔍 Profile name:', profile.name);
+    console.log('🔍 Profile emails:', profile.emails);
+    console.log('🔍 Access token available:', !!accessToken);
+    
+    // displayNameの複数ソースからの取得を試行
+    const displayName = profile.displayName || 
+                       profile.name?.givenName + ' ' + profile.name?.familyName ||
+                       profile.name?.givenName ||
+                       profile.emails?.[0]?.value?.split('@')[0] ||
+                       'User';
+    
+    console.log('🔍 Final displayName to use:', displayName);
     
     // JWTペイロードを作成
     const jwtPayload: JWTUser = {
       id: profile.id,
-      displayName: profile.displayName || '',
+      displayName: displayName,
       email: profile.emails?.[0]?.value || '',
       picture: profile.photos?.[0]?.value
     };
     
+    console.log('🔍 JWT payload created:', jwtPayload);
     return done(null, jwtPayload);
   }
   ));
@@ -118,15 +137,45 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   console.warn('⚠️ Google OAuth credentials not configured. Authentication will not work.');
 }
 
-// 認証状態確認（JWT版）
-app.get('/auth/status', authenticateJWT, (req, res) => {
+// 認証状態確認（JWT版 + データベース情報取得）
+app.get('/auth/status', authenticateJWT, async (req, res) => {
   console.log('🔍 AUTH STATUS CHECK - JWT User:', req.jwtUser);
   
   if (req.jwtUser) {
-    res.json({ 
-      authenticated: true, 
-      user: req.jwtUser 
-    });
+    try {
+      // データベースからユーザー情報を取得してJWT情報を補完
+      const { pool } = await import('./database/connection-postgres');
+      
+      // ユーザーIDでユーザー情報を検索
+      const userQuery = 'SELECT * FROM users WHERE name = $1 AND role IS NOT NULL LIMIT 1';
+      const userResult = await pool.query(userQuery, [req.jwtUser.displayName]);
+      
+      let enhancedUser = { ...req.jwtUser };
+      
+      if (userResult.rows.length > 0) {
+        const userData = userResult.rows[0];
+        console.log('🔍 AUTH STATUS CHECK - Found user in database:', userData);
+        
+        enhancedUser.coupleId = userData.couple_id;
+        enhancedUser.registeredUserId = userData.id;
+        
+        console.log('🔍 AUTH STATUS CHECK - Enhanced user data:', enhancedUser);
+      } else {
+        console.log('🔍 AUTH STATUS CHECK - No user found in database for displayName:', req.jwtUser.displayName);
+      }
+      
+      res.json({ 
+        authenticated: true, 
+        user: enhancedUser 
+      });
+    } catch (error) {
+      console.error('🔍 AUTH STATUS CHECK - Database error:', error);
+      // データベースエラーの場合はJWT情報のみを返す
+      res.json({ 
+        authenticated: true, 
+        user: req.jwtUser 
+      });
+    }
   } else {
     res.status(401).json({ 
       authenticated: false,
@@ -162,6 +211,14 @@ app.get('/health', (req, res) => {
 app.use('/api/expenses', authenticateJWT, expenseRoutes);
 app.use('/api/allocation-ratio', authenticateJWT, allocationRatioRoutes);
 app.use('/api/settlements', authenticateJWT, settlementRoutes);
+
+// カップルルート
+const coupleService = new CoupleService(pool);
+app.use('/api/couples', createCoupleRoutes(coupleService));
+
+// ユーザールート
+const userService = new UserService(pool);
+app.use('/api/users', createUserRoutes(userService));
 
 // 404 ハンドラー
 app.use('*', (req, res) => {
