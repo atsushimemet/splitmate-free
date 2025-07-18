@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AllocationRatio, ApiResponse, CreateExpenseRequest, Expense, ExpenseStats, MonthlyExpenseStats, MonthlyExpenseSummary, Settlement, UpdateAllocationRatioRequest, UpdateExpenseAllocationRatioRequest, UpdateExpenseRequest } from '../types';
+import { AllocationRatio, ApiResponse, Couple, CreateExpenseRequest, Expense, ExpenseStats, MonthlyExpenseStats, MonthlyExpenseSummary, Settlement, UpdateAllocationRatioRequest, UpdateExpenseAllocationRatioRequest, UpdateExpenseRequest, User } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -297,8 +297,11 @@ export const auth = {
   },
 
   // Googleログインページにリダイレクト
-  loginWithGoogle: () => {
-    window.location.href = `${API_BASE_URL}/auth/google`;
+  loginWithGoogle: (state?: string) => {
+    const url = state 
+      ? `${API_BASE_URL}/auth/google?state=${encodeURIComponent(state)}`
+      : `${API_BASE_URL}/auth/google`;
+    window.location.href = url;
   },
 
   // JWTトークンを設定
@@ -317,6 +320,100 @@ export const auth = {
         success: false, 
         error: 'ログアウトに失敗しました'
       };
+    }
+  }
+}; 
+
+export const coupleApi = {
+  // カップルを作成（認証あり）
+  createCouple: async (name: string): Promise<ApiResponse<Couple>> => {
+    try {
+      const response = await api.post('/couples', { name });
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'カップルの作成に失敗しました');
+    }
+  },
+
+  // カップルを作成（匿名・認証なし）
+  createCoupleAnonymous: async (name: string): Promise<ApiResponse<Couple>> => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/couples/anonymous`, { name });
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'カップルの作成に失敗しました');
+    }
+  },
+
+  // カップル情報を取得
+  getCouple: async (id: string): Promise<ApiResponse<Couple>> => {
+    try {
+      const response = await api.get(`/couples/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'カップル情報の取得に失敗しました');
+    }
+  },
+
+  // カップル情報を更新
+  updateCouple: async (id: string, name: string): Promise<ApiResponse<Couple>> => {
+    try {
+      const response = await api.put(`/couples/${id}`, { name });
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'カップル情報の更新に失敗しました');
+    }
+  },
+
+  // カップルを削除
+  deleteCouple: async (id: string): Promise<ApiResponse<void>> => {
+    try {
+      const response = await api.delete(`/couples/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'カップルの削除に失敗しました');
+    }
+  }
+}; 
+
+export const userApi = {
+  // ユーザーを作成
+  createUser: async (name: string, role: 'husband' | 'wife', coupleId: string): Promise<ApiResponse<User>> => {
+    try {
+      const response = await api.post('/users', { name, role, coupleId });
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'ユーザーの作成に失敗しました');
+    }
+  },
+
+  // Google認証情報からユーザーを作成（名前はJWTから自動取得）
+  createUserFromAuth: async (role: 'husband' | 'wife', coupleId: string): Promise<ApiResponse<User>> => {
+    try {
+      const response = await api.post('/users/from-auth', { role, coupleId });
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'ユーザーの作成に失敗しました');
+    }
+  },
+
+  // ユーザー情報を取得
+  getUser: async (id: string): Promise<ApiResponse<User>> => {
+    try {
+      const response = await api.get(`/users/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'ユーザー情報の取得に失敗しました');
+    }
+  },
+
+  // カップルのユーザー一覧を取得
+  getUsersByCouple: async (coupleId: string): Promise<ApiResponse<User[]>> => {
+    try {
+      const response = await api.get(`/users/couple/${coupleId}`);
+      return response.data;
+    } catch (error: any) {
+      return formatError(error, 'ユーザー一覧の取得に失敗しました');
     }
   }
 }; 

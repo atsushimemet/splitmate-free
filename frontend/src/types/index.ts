@@ -1,8 +1,20 @@
+export interface Couple {
+  id: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateCoupleRequest {
+  name: string;
+}
+
 export interface Expense {
   id: string;
   description: string;
   amount: number;
   payerId: string;
+  coupleId: string;
   expenseYear: number;
   expenseMonth: number;
   // Custom allocation ratio fields
@@ -17,6 +29,7 @@ export interface CreateExpenseRequest {
   description: string;
   amount: number;
   payerId: string;
+  coupleId: string;
   expenseYear?: number; // Optional - defaults to current year
   expenseMonth?: number; // Optional - defaults to current month
   // Custom allocation ratio fields
@@ -50,6 +63,15 @@ export interface User {
   id: string;
   name: string;
   role: 'husband' | 'wife';
+  coupleId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateUserRequest {
+  name: string;
+  role: 'husband' | 'wife';
+  coupleId: string;
 }
 
 export interface ExpenseStats {
