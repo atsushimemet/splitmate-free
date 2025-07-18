@@ -101,7 +101,7 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
     return {
       description: '',
       amount: 0,
-      payerId: coupleUsers.find(u => u.role === 'husband')?.id || 'husband',
+      payerId: coupleUsers.find(u => u.role === 'husband')?.id || coupleUsers[0]?.id || '',
       expenseYear: currentYear,
       expenseMonth: currentMonth,
       coupleId: user?.coupleId || ''
@@ -112,12 +112,15 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
 
   // coupleUsersが更新された時にpayerIdを適切に設定
   useEffect(() => {
-    if (coupleUsers.length > 0 && (!formData.payerId || (formData.payerId !== 'husband' && formData.payerId !== 'wife' && !coupleUsers.find(u => u.id === formData.payerId)))) {
+    if (coupleUsers.length > 0 && (!formData.payerId || !coupleUsers.find(u => u.id === formData.payerId))) {
       const husbandUser = coupleUsers.find(u => u.role === 'husband');
-      setFormData(prev => ({
-        ...prev,
-        payerId: husbandUser?.id || 'husband'
-      }));
+      const fallbackUser = husbandUser || coupleUsers[0];
+      if (fallbackUser) {
+        setFormData(prev => ({
+          ...prev,
+          payerId: fallbackUser.id
+        }));
+      }
     }
   }, [coupleUsers, formData.payerId]);
 
@@ -172,6 +175,14 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
         alert('カップルIDが取得できません。再ログインしてください。');
         return;
       }
+      
+      // 有効なpayerIdが選択されているかチェック
+      const validPayerId = coupleUsers.find(u => u.id === formData.payerId);
+      if (!validPayerId) {
+        alert('立替者を選択してください。未登録のユーザーは選択できません。');
+        return;
+      }
+      
       onSubmit({ ...formData, coupleId: user.coupleId });
       
       // Issue #14: 金額のみリセット、他のフィールドは保持
@@ -281,12 +292,17 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
             <button
               type="button"
               onClick={() => {
-                // 夫のユーザーIDを取得（存在しない場合は'husband'をセット）
+                // 夫のユーザーIDを取得
                 const husbandUser = coupleUsers.find(u => u.role === 'husband');
-                handleInputChange('payerId', husbandUser?.id || 'husband');
+                if (husbandUser) {
+                  handleInputChange('payerId', husbandUser.id);
+                }
               }}
+              disabled={!coupleUsers.find(u => u.role === 'husband')}
               className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                formData.payerId === coupleUsers.find(u => u.role === 'husband')?.id || formData.payerId === 'husband'
+                !coupleUsers.find(u => u.role === 'husband')
+                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : formData.payerId === coupleUsers.find(u => u.role === 'husband')?.id
                   ? 'border-blue-500 bg-blue-50 text-blue-700'
                   : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
               }`}
@@ -299,12 +315,17 @@ const ExpenseForm = forwardRef<ExpenseFormHandle, ExpenseFormProps>(({ onSubmit,
             <button
               type="button"
               onClick={() => {
-                // 妻のユーザーIDを取得（存在しない場合は'wife'をセット）
+                // 妻のユーザーIDを取得
                 const wifeUser = coupleUsers.find(u => u.role === 'wife');
-                handleInputChange('payerId', wifeUser?.id || 'wife');
+                if (wifeUser) {
+                  handleInputChange('payerId', wifeUser.id);
+                }
               }}
+              disabled={!coupleUsers.find(u => u.role === 'wife')}
               className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                formData.payerId === coupleUsers.find(u => u.role === 'wife')?.id || formData.payerId === 'wife'
+                !coupleUsers.find(u => u.role === 'wife')
+                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : formData.payerId === coupleUsers.find(u => u.role === 'wife')?.id
                   ? 'border-blue-500 bg-blue-50 text-blue-700'
                   : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
               }`}
